@@ -27,7 +27,7 @@ pub async fn build(name: String) -> anyhow::Result<()> {
         .await?
         .exit_ok()
         .context("Failed to download source tarball")?;
-    let Some((tarball_name, _)) = manifest.source.rsplit_once('/') else {
+    let Some((_, tarball_name)) = manifest.source.rsplit_once('/') else {
         bail!("Invalid source URL");
     };
     let Some(tarball_stem) = tarball_name
