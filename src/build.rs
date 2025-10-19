@@ -21,7 +21,7 @@ pub async fn build(name: String) -> anyhow::Result<()> {
         toml::from_str(&manifest_src).context("Failed to parse manifest.toml")?;
     fs::create_dir_all("/tmp/pkg/sources")?;
     Command::new("/usr/bin/wget")
-        .args(["-C", &manifest.source])
+        .args(["-c", &manifest.source])
         .current_dir("/tmp/pkg/sources")
         .status()
         .await?
