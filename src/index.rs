@@ -28,7 +28,7 @@ pub async fn update_index(root: &str, config: &Config) -> anyhow::Result<Index> 
             &format!("{}/var/lib/pkg/index.toml", root),
             &format!("{}/index.toml", config.index),
         ])
-        .output()
+        .status()
         .await?
         .exit_ok()
         .context("Failed to update index")?;
