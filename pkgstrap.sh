@@ -11,6 +11,11 @@ if [[ ! -d "$1" ]]; then
     exit 1
 fi
 
+if [[ "$1" == "/" ]]; then
+    echo "Refusing to run with root set to /"
+    exit 1
+fi
+
 export LFS="$1"
 umask 022
 
@@ -204,9 +209,8 @@ cgroup2        /sys/fs/cgroup cgroup2  nosuid,noexec,nodev 0     0
 # End /etc/fstab
 EOF
 
-cargo install --path . --root $LFS/usr
-mkdir -p /var/lib/pkg
-mkdir -p /etc/pkg
+mkdir -p $LFS/var/lib/pkg
+mkdir -p $LFS/etc/pkg
 cat > $LFS/etc/pkg/config.toml << "EOF"
 index = "https://tilde.club/~aspizu/"
 packages = [
@@ -278,5 +282,3 @@ packages = [
     "zstd",
 ]
 EOF
-$LFS/usr/bin/pkg --root $LFS sync
-rm -rf $LFS/tmp
