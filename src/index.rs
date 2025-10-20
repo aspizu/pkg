@@ -11,29 +11,29 @@ use crate::{
 
 pub type Index = FxHashMap<String, Manifest>;
 
-pub fn _load_index() -> anyhow::Result<Option<Index>> {
-    if !fs::exists("/var/lib/pkg/index.toml")? {
+pub fn _load_index(root: &str) -> anyhow::Result<Option<Index>> {
+    if !fs::exists(format!("{}/var/lib/pkg/index.toml", root))? {
         return Ok(None);
     }
-    let index_str =
-        fs::read_to_string("/var/lib/pkg/index.toml").context("Failed to read index")?;
+    let index_str = fs::read_to_string(format!("{}/var/lib/pkg/index.toml", root))
+        .context("Failed to read index")?;
     let index: Index = toml::from_str(&index_str).context("Invalid index format")?;
     Ok(Some(index))
 }
 
-pub async fn update_index(config: &Config) -> anyhow::Result<Index> {
+pub async fn update_index(root: &str, config: &Config) -> anyhow::Result<Index> {
     Command::new("/usr/bin/wget")
         .args([
             "-O",
-            "/var/lib/pkg/index.toml",
+            &format!("{}/var/lib/pkg/index.toml", root),
             &format!("{}/index.toml", config.index),
         ])
         .output()
         .await?
         .exit_ok()
         .context("Failed to update index")?;
-    let index_str =
-        fs::read_to_string("/var/lib/pkg/index.toml").context("Failed to read index")?;
+    let index_str = fs::read_to_string(format!("{}/var/lib/pkg/index.toml", root))
+        .context("Failed to read index")?;
     let index: Index = toml::from_str(&index_str).context("Invalid index format")?;
     Ok(index)
 }
