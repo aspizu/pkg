@@ -48,13 +48,10 @@ pub async fn sync(root: Option<String>) -> anyhow::Result<()> {
         let manifest = &index[*package_name];
         Command::new("/usr/bin/wget")
             .args([
-                "-O",
-                &format!(
-                    "{}/tmp/pkg/tarballs/{}.tar.zst",
-                    &root,
-                    &format!("{}/{}.tar.zst", &config.index, manifest.fullname())
-                ),
+                "-C",
+                &format!("{}/{}.tar.zst", &config.index, manifest.fullname()),
             ])
+            .current_dir(&format!("{}/tmp/pkg/tarballs", &root))
             .status()
             .await?
             .exit_ok()
