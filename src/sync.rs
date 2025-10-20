@@ -16,7 +16,8 @@ use crate::{
     package,
 };
 
-pub async fn sync() -> anyhow::Result<()> {
+pub async fn sync(root: Option<String>) -> anyhow::Result<()> {
+    let root = root.unwrap_or_default();
     let config = load_config()?;
     let index = update_index(&config).await?;
     let mut packages: Vec<String> = vec![];
@@ -28,19 +29,19 @@ pub async fn sync() -> anyhow::Result<()> {
     }
     let mut to_upgrade: Vec<&str> = vec![];
     for package_name in &packages {
-        let old_manifest_path = format!("/var/lib/pkg/{}/manifest.toml", &package_name);
+        let old_manifest_path = format!("{}/var/lib/pkg/{}/manifest.toml", &root, &package_name);
         let old_manifest = if fs::exists(&old_manifest_path)? {
             Some(load_manifest(&old_manifest_path)?)
         } else {
             None
         };
         let new_manifest = &index[package_name];
-        if let Some(old_manifest) = &old_manifest {
-            if old_manifest == new_manifest {
-                continue;
-            }
+        if let Some(old_manifest) = &old_manifest
+            && old_manifest == new_manifest
+        {
+            continue;
         }
-        to_upgrade.push(&package_name);
+        to_upgrade.push(package_name);
     }
     for package_name in &to_upgrade {
         let manifest = &index[*package_name];
@@ -48,7 +49,8 @@ pub async fn sync() -> anyhow::Result<()> {
             .args([
                 "-O",
                 &format!(
-                    "/tmp/pkg/tarballs/{}.tar.zst",
+                    "{}/tmp/pkg/tarballs/{}.tar.zst",
+                    &root,
                     &format!("{}/{}.tar.zst", &config.index, manifest.fullname())
                 ),
             ])
@@ -60,22 +62,23 @@ pub async fn sync() -> anyhow::Result<()> {
     for package_name in to_upgrade {
         let manifest = &index[package_name];
         package::install(
+            &root,
             manifest,
-            &format!("/tmp/pkg/tarballs/{}.tar.zst", manifest.fullname()),
+            &format!("{}/tmp/pkg/tarballs/{}.tar.zst", &root, manifest.fullname()),
         )
         .await?;
     }
-    for entry in fs::read_dir("/var/lib/pkg")? {
+    for entry in fs::read_dir(format!("{}/var/lib/pkg", root))? {
         let entry = entry?;
         let name = entry.file_name();
         let name = name.to_str().unwrap();
         if ["index.toml", "lockfile.txt"].contains(&name) {
             continue;
         }
-        if packages.iter().find(|p| *p == name).is_some() {
+        if packages.iter().any(|needed| *needed == name) {
             continue;
         }
-        package::uninstall(name).await?;
+        package::uninstall(&root, name).await?;
     }
     Ok(())
 }

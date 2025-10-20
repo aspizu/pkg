@@ -9,6 +9,9 @@ use crate::sync::sync;
 #[derive(Debug, Parser)]
 #[command(version=env!("CARGO_PKG_VERSION"))]
 pub struct Cli {
+    /// The root directory of the system. (default: /)
+    #[arg(short, long)]
+    pub root: Option<String>,
     #[command(subcommand)]
     pub command: Command,
 }
@@ -28,12 +31,13 @@ pub enum Command {
 }
 
 pub async fn cli() -> anyhow::Result<()> {
-    match Cli::parse().command {
+    let args = Cli::parse();
+    match args.command {
         Command::Completions { shell } => {
             shell.generate(&mut Cli::command(), &mut std::io::stdout());
         }
         Command::Sync => {
-            sync().await?;
+            sync(args.root).await?;
         }
     }
     Ok(())

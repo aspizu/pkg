@@ -23,8 +23,8 @@ use crate::manifest::{
     save_manifest,
 };
 
-fn load_filelist(name: &str) -> anyhow::Result<Vec<String>> {
-    let file = File::open(format!("/var/lib/pkg/{}/filelist.txt", name))
+fn load_filelist(root: &str, name: &str) -> anyhow::Result<Vec<String>> {
+    let file = File::open(format!("{}/var/lib/pkg/{}/filelist.txt", root, name))
         .context("Failed to open filelist")?;
     let reader = BufReader::new(file);
     let mut lines = vec![];
@@ -48,8 +48,8 @@ async fn get_filelist(package: &str) -> anyhow::Result<Vec<String>> {
     Ok(lines)
 }
 
-fn save_filelist(name: &str, filelist: &[String]) -> anyhow::Result<()> {
-    let file = File::create(format!("/var/lib/pkg/{}/filelist.txt", name))
+fn save_filelist(root: &str, name: &str, filelist: &[String]) -> anyhow::Result<()> {
+    let file = File::create(format!("{}/var/lib/pkg/{}/filelist.txt", root, name))
         .context("Failed to create filelist")?;
     let mut writer = BufWriter::new(file);
     for line in filelist {
@@ -58,9 +58,9 @@ fn save_filelist(name: &str, filelist: &[String]) -> anyhow::Result<()> {
     Ok(())
 }
 
-async fn unpack_package(path: &str) -> anyhow::Result<()> {
+async fn unpack_package(root: &str, path: &str) -> anyhow::Result<()> {
     Command::new("/usr/bin/tar")
-        .args(["--overwrite", "-C", "/", "-xf", path])
+        .args(["--overwrite", "-C", &format!("{}/", root), "-xf", path])
         .status()
         .await?
         .exit_ok()
@@ -81,19 +81,21 @@ fn uninstall_path(path: &str) -> anyhow::Result<()> {
     Ok(())
 }
 
-pub async fn install(manifest: &Manifest, package: &str) -> anyhow::Result<()> {
+pub async fn install(root: &str, manifest: &Manifest, package: &str) -> anyhow::Result<()> {
     let filelist = get_filelist(package).await?;
-    let path = format!("/var/lib/pkg/{}", &manifest.name);
+    let path = format!("{}/var/lib/pkg/{}", root, &manifest.name);
     let old_data = if fs::exists(&path)? {
-        let old_manifest =
-            load_manifest(&format!("/var/lib/pkg/{}/manifest.toml", &manifest.name))?;
-        let old_filelist = load_filelist(&manifest.name)?;
+        let old_manifest = load_manifest(&format!(
+            "{}/var/lib/pkg/{}/manifest.toml",
+            root, &manifest.name
+        ))?;
+        let old_filelist = load_filelist(root, &manifest.name)?;
         Some((old_manifest, old_filelist))
     } else {
         None
     };
-    unpack_package(package).await?;
-    if let Some((old_manifest, old_filelist)) = old_data {
+    unpack_package(root, package).await?;
+    if let Some((_old_manifest, old_filelist)) = old_data {
         for file in old_filelist {
             if filelist.contains(&file) {
                 continue;
@@ -104,20 +106,20 @@ pub async fn install(manifest: &Manifest, package: &str) -> anyhow::Result<()> {
     fs::create_dir_all(path)?;
     save_manifest(
         manifest,
-        &format!("/var/lib/pkg/{}/manifest.toml", &manifest.name),
+        &format!("{}/var/lib/pkg/{}/manifest.toml", root, &manifest.name),
     )?;
-    save_filelist(&manifest.name, &filelist)?;
+    save_filelist(root, &manifest.name, &filelist)?;
     todo!()
 }
 
-pub async fn uninstall(name: &str) -> anyhow::Result<()> {
-    let path = format!("/var/lib/pkg/{}", name);
+pub async fn uninstall(root: &str, name: &str) -> anyhow::Result<()> {
+    let path = format!("{}/var/lib/pkg/{}", root, name);
     if !fs::exists(&path)? {
         bail!("Package {} is not installed", name);
     }
-    let manifest_path = format!("/var/lib/pkg/{}/manifest.toml", name);
-    let manifest = load_manifest(&manifest_path)?;
-    let filelist = load_filelist(name)?;
+    let manifest_path = format!("{}/var/lib/pkg/{}/manifest.toml", root, name);
+    let _manifest = load_manifest(&manifest_path)?;
+    let filelist = load_filelist(root, name)?;
     for file in filelist {
         uninstall_path(&file)?;
     }

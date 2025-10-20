@@ -11,7 +11,7 @@ use crate::{
 
 pub type Index = FxHashMap<String, Manifest>;
 
-pub fn load_index() -> anyhow::Result<Option<Index>> {
+pub fn _load_index() -> anyhow::Result<Option<Index>> {
     if !fs::exists("/var/lib/pkg/index.toml")? {
         return Ok(None);
     }
