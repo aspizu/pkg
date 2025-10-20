@@ -53,6 +53,17 @@ pub async fn build(name: String) -> anyhow::Result<()> {
         .exit_ok()
         .context("Failed to extract source tarball")?;
     Command::new("/usr/bin/bash")
+        .args([
+            "-c",
+            "for PATCHFILE in $RECIPY/*.patch; do patch -Np1 -i \"$PATCHFILE\"; done",
+        ])
+        .current_dir(&tarball_path)
+        .env("RECIPY", &recipy_path)
+        .status()
+        .await?
+        .exit_ok()
+        .context("Failed to apply recipy patches")?;
+    Command::new("/usr/bin/bash")
         .args(["-e", &format!("{}/build.sh", recipy_path.display())])
         .current_dir(tarball_path)
         .env("DESTDIR", &build_dir)
