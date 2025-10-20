@@ -19,7 +19,7 @@ use crate::{
 pub async fn sync(root: Option<String>) -> anyhow::Result<()> {
     let root = root.unwrap_or_default();
     fs::create_dir_all(format!("{}/tmp/pkg/tarballs", &root))?;
-    let config = load_config()?;
+    let config = load_config(&root)?;
     let index = update_index(&root, &config).await?;
     let mut packages: Vec<String> = vec![];
     for package_name in &config.packages {
