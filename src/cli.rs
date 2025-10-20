@@ -4,10 +4,7 @@ use clap::{
 };
 use clap_derive::Subcommand;
 
-use crate::{
-    build::build,
-    sync::sync,
-};
+use crate::sync::sync;
 
 #[derive(Debug, Parser)]
 #[command(version=env!("CARGO_PKG_VERSION"))]
@@ -21,12 +18,6 @@ pub enum Command {
     /// Sync packages installed on this system to the index.
     #[command()]
     Sync,
-    /// Build and upload package to the index.
-    #[command()]
-    Build {
-        /// The name of the package to build.
-        package: String,
-    },
     /// Generate completions for a shell.
     #[command()]
     Completions {
@@ -43,9 +34,6 @@ pub async fn cli() -> anyhow::Result<()> {
         }
         Command::Sync => {
             sync().await?;
-        }
-        Command::Build { package } => {
-            build(package).await?;
         }
     }
     Ok(())

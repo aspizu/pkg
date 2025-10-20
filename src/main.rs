@@ -1,6 +1,5 @@
 #![feature(exit_status_error)]
 
-mod build;
 mod cli;
 mod config;
 mod index;
