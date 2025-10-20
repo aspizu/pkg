@@ -15,7 +15,7 @@ build:
 test:
 	$(CARGO) test
 
-install: build
+install:
 	@mkdir -p "$(DESTDIR)$(bindir)"
 	install -m 755 target/release/pkg "$(DESTDIR)$(bindir)/"
 
