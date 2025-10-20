@@ -55,6 +55,8 @@ pub async fn build(name: String) -> anyhow::Result<()> {
     Command::new("/usr/bin/bash")
         .args([
             "-c",
+            "-O",
+            "nullglob",
             "for PATCHFILE in $RECIPY/*.patch; do patch -Np1 -i \"$PATCHFILE\"; done",
         ])
         .current_dir(&tarball_path)
