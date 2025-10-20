@@ -3,10 +3,12 @@ set -ex
 
 if [[ -z "$1" ]]; then
     echo "Usage: ./pkgstrap.sh /mnt"
+    exit 1
 fi
 
 if [[ ! -d "$1" ]]; then
     echo "$1 is not a directory"
+    exit 1
 fi
 
 export LFS="$1"
