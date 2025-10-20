@@ -32,7 +32,7 @@ async fn main() -> ExitCode {
     }));
     let result = cli().await;
     if let Err(error) = &result {
-        eprintln!("{}{} {}", "error".bold().red(), ":".bold(), error);
+        eprintln!("{}{} {:#?}", "error".bold().red(), ":".bold(), error);
     }
     eprintln!(
         "{} in {:?}",
