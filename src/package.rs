@@ -109,7 +109,7 @@ pub async fn install(root: &str, manifest: &Manifest, package: &str) -> anyhow::
         &format!("{}/var/lib/pkg/{}/manifest.toml", root, &manifest.name),
     )?;
     save_filelist(root, &manifest.name, &filelist)?;
-    todo!()
+    Ok(())
 }
 
 pub async fn uninstall(root: &str, name: &str) -> anyhow::Result<()> {
