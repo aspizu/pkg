@@ -1,6 +1,6 @@
 use std::fs;
 
-use anyhow::Context;
+use eyre::Context;
 use fxhash::FxHashMap;
 use tokio::process::Command;
 
@@ -11,7 +11,7 @@ use crate::{
 
 pub type Index = FxHashMap<String, Manifest>;
 
-pub fn _load_index(root: &str) -> anyhow::Result<Option<Index>> {
+pub fn _load_index(root: &str) -> eyre::Result<Option<Index>> {
     if !fs::exists(format!("{}/var/lib/pkg/index.toml", root))? {
         return Ok(None);
     }
@@ -21,7 +21,7 @@ pub fn _load_index(root: &str) -> anyhow::Result<Option<Index>> {
     Ok(Some(index))
 }
 
-pub async fn update_index(root: &str, config: &Config) -> anyhow::Result<Index> {
+pub async fn update_index(root: &str, config: &Config) -> eyre::Result<Index> {
     Command::new("/usr/bin/wget")
         .args([
             "-O",

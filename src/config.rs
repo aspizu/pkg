@@ -1,4 +1,4 @@
-use anyhow::Context;
+use eyre::Context;
 use serde::{
     Deserialize,
     Serialize,
@@ -10,7 +10,7 @@ pub struct Config {
     pub packages: Vec<String>,
 }
 
-pub fn load_config(root: &str) -> anyhow::Result<Config> {
+pub fn load_config(root: &str) -> eyre::Result<Config> {
     let config_str = std::fs::read_to_string(&format!("{}/etc/pkg/config.toml", root))
         .context("Failed to read config file")?;
     let config: Config = toml::from_str(&config_str).context("Invalid config file")?;

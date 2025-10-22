@@ -11,7 +11,7 @@ use std::{
     },
 };
 
-use anyhow::{
+use eyre::{
     Context,
     bail,
 };
@@ -23,7 +23,7 @@ use crate::manifest::{
     save_manifest,
 };
 
-fn load_filelist(root: &str, name: &str) -> anyhow::Result<Vec<String>> {
+fn load_filelist(root: &str, name: &str) -> eyre::Result<Vec<String>> {
     let file = File::open(format!("{}/var/lib/pkg/{}/filelist.txt", root, name))
         .context("Failed to open filelist")?;
     let reader = BufReader::new(file);
@@ -34,7 +34,7 @@ fn load_filelist(root: &str, name: &str) -> anyhow::Result<Vec<String>> {
     Ok(lines)
 }
 
-async fn get_filelist(package: &str) -> anyhow::Result<Vec<String>> {
+async fn get_filelist(package: &str) -> eyre::Result<Vec<String>> {
     let output = Command::new("/usr/bin/tar")
         .args(["-tf", package])
         .output()
@@ -48,7 +48,7 @@ async fn get_filelist(package: &str) -> anyhow::Result<Vec<String>> {
     Ok(lines)
 }
 
-fn save_filelist(root: &str, name: &str, filelist: &[String]) -> anyhow::Result<()> {
+fn save_filelist(root: &str, name: &str, filelist: &[String]) -> eyre::Result<()> {
     let file = File::create(format!("{}/var/lib/pkg/{}/filelist.txt", root, name))
         .context("Failed to create filelist")?;
     let mut writer = BufWriter::new(file);
@@ -58,7 +58,7 @@ fn save_filelist(root: &str, name: &str, filelist: &[String]) -> anyhow::Result<
     Ok(())
 }
 
-async fn unpack_package(root: &str, path: &str) -> anyhow::Result<()> {
+async fn unpack_package(root: &str, path: &str) -> eyre::Result<()> {
     Command::new("/usr/bin/tar")
         .args(["--overwrite", "-C", &format!("{}/", root), "-xf", path])
         .status()
@@ -68,7 +68,7 @@ async fn unpack_package(root: &str, path: &str) -> anyhow::Result<()> {
     Ok(())
 }
 
-fn uninstall_path(path: &str) -> anyhow::Result<()> {
+fn uninstall_path(path: &str) -> eyre::Result<()> {
     if !fs::exists(path)? {
         return Ok(());
     }
@@ -81,7 +81,7 @@ fn uninstall_path(path: &str) -> anyhow::Result<()> {
     Ok(())
 }
 
-pub async fn install(root: &str, manifest: &Manifest, package: &str) -> anyhow::Result<()> {
+pub async fn install(root: &str, manifest: &Manifest, package: &str) -> eyre::Result<()> {
     let filelist = get_filelist(package).await?;
     let path = format!("{}/var/lib/pkg/{}", root, &manifest.name);
     let old_data = if fs::exists(&path)? {
@@ -112,7 +112,7 @@ pub async fn install(root: &str, manifest: &Manifest, package: &str) -> anyhow::
     Ok(())
 }
 
-pub async fn uninstall(root: &str, name: &str) -> anyhow::Result<()> {
+pub async fn uninstall(root: &str, name: &str) -> eyre::Result<()> {
     let path = format!("{}/var/lib/pkg/{}", root, name);
     if !fs::exists(&path)? {
         bail!("Package {} is not installed", name);

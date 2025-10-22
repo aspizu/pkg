@@ -30,7 +30,7 @@ pub enum Command {
     },
 }
 
-pub async fn cli() -> anyhow::Result<()> {
+pub async fn cli() -> eyre::Result<()> {
     let args = Cli::parse();
     match args.command {
         Command::Completions { shell } => {

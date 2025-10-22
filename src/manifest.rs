@@ -1,4 +1,4 @@
-use anyhow::Context;
+use eyre::Context;
 use serde::{
     Deserialize,
     Serialize,
@@ -25,14 +25,14 @@ impl PartialEq for Manifest {
     }
 }
 
-pub fn load_manifest(path: &str) -> anyhow::Result<Manifest> {
+pub fn load_manifest(path: &str) -> eyre::Result<Manifest> {
     let manifest_src = std::fs::read_to_string(path).context("Failed to read manifest.toml")?;
     let manifest: Manifest =
         toml::from_str(&manifest_src).context("Failed to parse manifest.toml")?;
     Ok(manifest)
 }
 
-pub fn save_manifest(manifest: &Manifest, path: &str) -> anyhow::Result<()> {
+pub fn save_manifest(manifest: &Manifest, path: &str) -> eyre::Result<()> {
     let manifest_src = toml::to_string(manifest).context("Failed to serialize manifest.toml")?;
     std::fs::write(path, manifest_src).context("Failed to write manifest.toml")?;
     Ok(())

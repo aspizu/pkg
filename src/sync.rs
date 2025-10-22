@@ -1,6 +1,6 @@
 use std::fs;
 
-use anyhow::{
+use eyre::{
     Context,
     bail,
 };
@@ -16,7 +16,7 @@ use crate::{
     package,
 };
 
-pub async fn sync(root: Option<String>) -> anyhow::Result<()> {
+pub async fn sync(root: Option<String>) -> eyre::Result<()> {
     let root = root.unwrap_or_default();
     fs::create_dir_all(format!("{}/tmp/pkg/tarballs", &root))?;
     let config = load_config(&root)?;
