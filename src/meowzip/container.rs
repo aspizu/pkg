@@ -1,6 +1,7 @@
 use std::io::{
     BufReader,
     Read,
+    Take,
     Write,
 };
 
@@ -20,14 +21,14 @@ use crate::meowzip::{
 pub struct MeowZipReader<T>
 where T: Read
 {
-    pub inner: zstd::Decoder<'static, BufReader<T>>,
-    pub filelist: Vec<Entry>,
+    inner: zstd::Decoder<'static, BufReader<T>>,
+    i: usize,
 }
 
 impl<T> MeowZipReader<T>
 where T: Read
 {
-    pub fn new(mut inner: T) -> eyre::Result<Self> {
+    pub fn new(mut inner: T) -> eyre::Result<(Vec<Entry>, Self)> {
         let mut u32_buf = [0; 4];
         inner.read_exact(&mut u32_buf)?;
 
@@ -39,10 +40,22 @@ where T: Read
 
         let filelist = reader::get_filelist(&mut decoder).context("Not a valid meow zip file.")?;
 
-        Ok(Self {
-            inner: decoder,
+        Ok((
             filelist,
-        })
+            Self {
+                inner: decoder,
+                i: 0,
+            },
+        ))
+    }
+
+    pub fn next_file(
+        &mut self,
+        filelist: &[Entry],
+    ) -> Take<&mut zstd::Decoder<'static, BufReader<T>>> {
+        let reader = self.inner.by_ref().take(filelist[self.i].size as u64);
+        self.i += 1;
+        reader
     }
 }
 

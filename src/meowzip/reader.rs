@@ -10,6 +10,7 @@ pub struct Entry {
     pub mode: u32,
     pub uid: u32,
     pub gid: u32,
+    pub hash: u64,
 }
 
 pub fn get_filelist<T>(reader: &mut T) -> eyre::Result<Vec<Entry>>
@@ -43,12 +44,16 @@ where T: Read {
         reader.read_exact(&mut u32_buf)?;
         let gid = u32::from_le_bytes(u32_buf);
 
+        reader.read_exact(&mut u64_buf)?;
+        let hash = u64::from_le_bytes(u64_buf);
+
         filelist.push(Entry {
             path,
             size,
             mode,
             uid,
             gid,
+            hash,
         })
     }
     Ok(filelist)
@@ -67,17 +72,20 @@ pub fn split_archive(filelist: &[Entry]) -> eyre::Result<usize> {
         // filename
         length += entry.path.to_str().unwrap().len();
 
-        // file size
+        // size
         length += 8;
 
-        // file mode
+        // mode
         length += 4;
 
-        // file uid
+        // uid
         length += 4;
 
-        // file gid;
+        // gid
         length += 4;
+
+        // hash
+        length += 8;
     }
 
     Ok(length)

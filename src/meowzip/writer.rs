@@ -1,8 +1,10 @@
 use std::{
     fs::{
         self,
+        File,
         OpenOptions,
     },
+    hash::Hasher,
     io::{
         self,
         BufReader,
@@ -17,6 +19,8 @@ use std::{
         PathBuf,
     },
 };
+
+use xxhash_rust::xxh3;
 
 fn get_filelist(dir: PathBuf, out: &mut Vec<PathBuf>) -> io::Result<()> {
     let mut entries = vec![];
@@ -54,16 +58,45 @@ where T: Write {
     Ok(())
 }
 
+pub fn hash_file(path: &Path) -> io::Result<u64> {
+    let file = OpenOptions::new()
+        .read(true)
+        .custom_flags(libc::O_NOFOLLOW)
+        .open(path)?;
+    let mut reader = BufReader::new(file);
+    let mut hasher = xxh3::Xxh3Default::new();
+    io::copy(&mut reader, &mut hasher)?;
+    let hash = hasher.finish();
+    Ok(hash)
+}
+
 fn write_entry<T>(out: &mut T, path: &Path) -> io::Result<()>
 where T: Write {
-    let filename = path.to_str().unwrap();
+    let filename = path.to_str().unwrap().strip_suffix(".").unwrap();
     let meta = path.metadata()?;
+    let is_dir = meta.is_dir();
+    let is_symlink = meta.is_symlink();
     out.write_all(&filename.len().to_le_bytes())?;
     out.write_all(filename.as_bytes())?;
-    out.write_all(&meta.st_size().to_le_bytes())?;
+    out.write_all(
+        &(if is_dir && !is_symlink {
+            0
+        } else {
+            meta.st_size()
+        })
+        .to_le_bytes(),
+    )?;
     out.write_all(&meta.st_mode().to_le_bytes())?;
     out.write_all(&meta.st_uid().to_le_bytes())?;
     out.write_all(&meta.st_gid().to_le_bytes())?;
+    out.write_all(
+        &(if is_symlink || is_dir {
+            0
+        } else {
+            hash_file(path)?
+        })
+        .to_le_bytes(),
+    )?;
     Ok(())
 }
 

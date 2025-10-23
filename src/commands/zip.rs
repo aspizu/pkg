@@ -16,8 +16,8 @@ use crate::meowzip::container::{
 pub async fn zip(path: PathBuf, list: bool) -> eyre::Result<()> {
     if list {
         let file = File::open(path).context("Failed to open input file.")?;
-        let meowzip = MeowZipReader::new(file)?;
-        for entry in &meowzip.filelist {
+        let (mzlist, _) = MeowZipReader::new(file)?;
+        for entry in &mzlist {
             let mode = Mode::from(entry.mode);
             assert!(mode.mode() == entry.mode);
             println!(
