@@ -1,10 +1,12 @@
 #![feature(exit_status_error)]
-mod cli;
-mod config;
-mod index;
-mod manifest;
-mod package;
-mod sync;
+
+pub mod commands;
+pub mod config;
+pub mod index;
+pub mod manifest;
+pub mod meowzip;
+pub mod package;
+
 use std::time::Instant;
 
 use colored::{
@@ -12,7 +14,8 @@ use colored::{
     Colorize,
 };
 
-use crate::cli::cli;
+use crate::commands::cli;
+
 #[tokio::main]
 async fn main() -> eyre::Result<()> {
     color_eyre::install()?;

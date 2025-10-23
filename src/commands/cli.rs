@@ -1,26 +1,39 @@
+use std::path::PathBuf;
+
 use clap::{
     CommandFactory,
     Parser,
 };
 use clap_derive::Subcommand;
 
-use crate::sync::sync;
+use crate::commands::{
+    sync::sync,
+    zip::zip,
+};
 
 #[derive(Debug, Parser)]
 #[command(version=env!("CARGO_PKG_VERSION"))]
-pub struct Cli {
+struct Cli {
     /// The root directory of the system. (default: /)
     #[arg(short, long)]
-    pub root: Option<String>,
+    root: Option<String>,
     #[command(subcommand)]
-    pub command: Command,
+    command: Command,
 }
 
 #[derive(Debug, Subcommand)]
-pub enum Command {
+enum Command {
     /// Sync packages installed on this system to the index.
     #[command()]
     Sync,
+    /// Perform meow zip operations. Default operation is to zip current directory.
+    Zip {
+        /// Path to a meow zip file.
+        file: PathBuf,
+        /// Read and list contents of meow zip, instead of creating a new file.
+        #[arg(short, long)]
+        list: bool,
+    },
     /// Generate completions for a shell.
     #[command()]
     Completions {
@@ -38,6 +51,9 @@ pub async fn cli() -> eyre::Result<()> {
         }
         Command::Sync => {
             sync(args.root).await?;
+        }
+        Command::Zip { file, list } => {
+            zip(file, list).await?;
         }
     }
     Ok(())

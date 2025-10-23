@@ -1,5 +1,5 @@
 [package]
-name = "pkg"
+name = "meow"
 version = "1.0.0"
 edition = "2024"
 
@@ -10,8 +10,12 @@ clap_derive = "4.5.49"
 color-eyre = "0.6.5"
 colored = "3.0.0"
 eyre = "0.6.12"
+file-mode = "0.1.2"
 fxhash = "0.2.1"
+human_bytes = "0.4.3"
+libc = "0.2.177"
 pretty_env_logger = "0.5.0"
 serde = { version = "1.0.228", features = ["derive"] }
 tokio = { version = "1.48.0", features = ["full"] }
 toml = "0.9.8"
+zstd = "0.13.3"

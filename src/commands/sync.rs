@@ -18,7 +18,7 @@ use crate::{
 
 pub async fn sync(root: Option<String>) -> eyre::Result<()> {
     let root = root.unwrap_or_default();
-    fs::create_dir_all(format!("{}/tmp/pkg/tarballs", &root))?;
+    fs::create_dir_all(format!("{}/tmp/meow/meowzips", &root))?;
     let config = load_config(&root)?;
     let index = update_index(&root, &config).await?;
     let mut packages: Vec<String> = vec![];
@@ -30,7 +30,7 @@ pub async fn sync(root: Option<String>) -> eyre::Result<()> {
     }
     let mut to_upgrade: Vec<&str> = vec![];
     for package_name in &packages {
-        let old_manifest_path = format!("{}/var/lib/pkg/{}/manifest.toml", &root, &package_name);
+        let old_manifest_path = format!("{}/var/lib/meow/{}/manifest.toml", &root, &package_name);
         let old_manifest = if fs::exists(&old_manifest_path)? {
             Some(load_manifest(&old_manifest_path)?)
         } else {
@@ -49,9 +49,9 @@ pub async fn sync(root: Option<String>) -> eyre::Result<()> {
         Command::new("/usr/bin/wget")
             .args([
                 "-c",
-                &format!("{}/{}.tar.zst", &config.index, manifest.fullname()),
+                &format!("{}/{}.mz", &config.index, manifest.fullname()),
             ])
-            .current_dir(&format!("{}/tmp/pkg/tarballs", &root))
+            .current_dir(&format!("{}/tmp/meow/meowzips", &root))
             .status()
             .await?
             .exit_ok()
@@ -62,11 +62,11 @@ pub async fn sync(root: Option<String>) -> eyre::Result<()> {
         package::install(
             &root,
             manifest,
-            &format!("{}/tmp/pkg/tarballs/{}.tar.zst", &root, manifest.fullname()),
+            &format!("{}/tmp/meow/meowzips/{}.mz", &root, manifest.fullname()),
         )
         .await?;
     }
-    for entry in fs::read_dir(format!("{}/var/lib/pkg", root))? {
+    for entry in fs::read_dir(format!("{}/var/lib/meow", root))? {
         let entry = entry?;
         let name = entry.file_name();
         let name = name.to_str().unwrap();

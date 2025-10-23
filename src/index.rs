@@ -12,10 +12,10 @@ use crate::{
 pub type Index = FxHashMap<String, Manifest>;
 
 pub fn _load_index(root: &str) -> eyre::Result<Option<Index>> {
-    if !fs::exists(format!("{}/var/lib/pkg/index.toml", root))? {
+    if !fs::exists(format!("{}/var/lib/meow/index.toml", root))? {
         return Ok(None);
     }
-    let index_str = fs::read_to_string(format!("{}/var/lib/pkg/index.toml", root))
+    let index_str = fs::read_to_string(format!("{}/var/lib/meow/index.toml", root))
         .context("Failed to read index")?;
     let index: Index = toml::from_str(&index_str).context("Invalid index format")?;
     Ok(Some(index))
@@ -25,14 +25,14 @@ pub async fn update_index(root: &str, config: &Config) -> eyre::Result<Index> {
     Command::new("/usr/bin/wget")
         .args([
             "-O",
-            &format!("{}/var/lib/pkg/index.toml", root),
+            &format!("{}/var/lib/meow/index.toml", root),
             &format!("{}/index.toml", config.index),
         ])
         .status()
         .await?
         .exit_ok()
         .context("Failed to update index")?;
-    let index_str = fs::read_to_string(format!("{}/var/lib/pkg/index.toml", root))
+    let index_str = fs::read_to_string(format!("{}/var/lib/meow/index.toml", root))
         .context("Failed to read index")?;
     let index: Index = toml::from_str(&index_str).context("Invalid index format")?;
     Ok(index)

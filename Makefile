@@ -17,10 +17,10 @@ test:
 
 install:
 	@mkdir -p "$(DESTDIR)$(bindir)"
-	install -m 755 target/release/pkg "$(DESTDIR)$(bindir)/"
+	install -m 755 target/release/meow "$(DESTDIR)$(bindir)/"
 
 uninstall:
-	rm -f "$(DESTDIR)$(bindir)/pkg"
+	rm -f "$(DESTDIR)$(bindir)/meow"
 
 clean:
 	$(CARGO) clean
