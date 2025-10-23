@@ -30,6 +30,8 @@ pub async fn zip(path: PathBuf, list: bool) -> eyre::Result<()> {
                 entry.hash,
             );
         }
+        let total_size: usize = mzlist.iter().map(|x| x.size).sum();
+        println!("Total size {}", human_bytes(total_size as f64))
     } else {
         let file = File::create(path).context("Failed to open output file.")?;
         let writer = BufWriter::new(file);
