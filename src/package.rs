@@ -2,11 +2,10 @@ use std::{
     fs::{
         self,
         File,
+        OpenOptions,
     },
     io::{
         self,
-        BufRead,
-        BufReader,
         BufWriter,
         Read,
         Write,
@@ -21,138 +20,32 @@ use std::{
     time::SystemTime,
 };
 
-use eyre::{
-    Context,
-    bail,
-};
 use file_mode::Mode;
-use tokio::process::Command;
 
 use crate::{
     manifest::{
         Manifest,
-        load_manifest,
         save_manifest,
     },
     meowzip::{
-        container::MeowZipReader,
+        container::{
+            MZlistWriter,
+            MeowZipReader,
+        },
+        reader::Entry,
         writer::hash_file,
     },
 };
 
-fn load_filelist(root: &str, name: &str) -> eyre::Result<Vec<String>> {
-    let file = File::open(format!("{}/var/lib/meow/{}/filelist.txt", root, name))
-        .context("Failed to open filelist")?;
-    let reader = BufReader::new(file);
-    let mut lines = vec![];
-    for line in reader.lines() {
-        lines.push(line?);
-    }
-    Ok(lines)
-}
-
-async fn get_filelist(package: &str) -> eyre::Result<Vec<String>> {
-    let output = Command::new("/usr/bin/tar")
-        .args(["-tf", package])
-        .output()
-        .await?
-        .exit_ok()
-        .context("Failed to get file list from package")?;
-    let mut lines = vec![];
-    for line in output.stdout.lines() {
-        lines.push(line?);
-    }
-    Ok(lines)
-}
-
-fn save_filelist(root: &str, name: &str, filelist: &[String]) -> eyre::Result<()> {
-    let file = File::create(format!("{}/var/lib/meow/{}/filelist.txt", root, name))
-        .context("Failed to create filelist")?;
-    let mut writer = BufWriter::new(file);
-    for line in filelist {
-        writeln!(writer, "{}", line)?;
-    }
-    Ok(())
-}
-
-async fn unpack_package(root: &str, path: &str) -> eyre::Result<()> {
-    Command::new("/usr/bin/tar")
-        .args([
-            "--overwrite",              // overwrite existing files when extracting
-            "--no-overwrite-dir",       // preserve metadata of existing directories
-            "--keep-directory-symlink", // preserve directory symlinks
-            "-C",
-            &format!("{}/", root),
-            "-xf",
-            path,
-        ])
-        .status()
-        .await?
-        .exit_ok()
-        .context("Failed to unpack package")?;
-    Ok(())
-}
-
-fn uninstall_path(path: &str) -> eyre::Result<()> {
-    if !fs::exists(path)? {
-        return Ok(());
-    }
-    let meta = fs::metadata(path)?;
-    if meta.is_file() || meta.is_symlink() {
-        fs::remove_file(path)?;
-    } else if meta.is_dir() && fs::read_dir(path)?.next().is_none() {
-        fs::remove_dir(path)?;
-    }
-    Ok(())
-}
-
-pub async fn install(root: &str, manifest: &Manifest, package: &str) -> eyre::Result<()> {
-    let filelist = get_filelist(package).await?;
-    let path = format!("{}/var/lib/meow/{}", root, &manifest.name);
-    let old_data = if fs::exists(&path)? {
-        let old_manifest = load_manifest(&format!(
-            "{}/var/lib/meow/{}/manifest.toml",
-            root, &manifest.name
-        ))?;
-        let old_filelist = load_filelist(root, &manifest.name)?;
-        Some((old_manifest, old_filelist))
+fn install_meowzip(name: &str, mzpath: &str, root: &str) -> eyre::Result<()> {
+    let mzlistpath = format!("{}/var/lib/meow/installed/{}/mzlist", root, name);
+    let oldmzlist = if fs::exists(&mzlistpath)? {
+        let file = File::open(&mzlistpath)?;
+        let (oldmzlist, _) = MeowZipReader::new(file)?;
+        oldmzlist
     } else {
-        None
+        vec![]
     };
-    unpack_package(root, package).await?;
-    if let Some((_old_manifest, old_filelist)) = old_data {
-        for file in old_filelist {
-            if filelist.contains(&file) {
-                continue;
-            }
-            uninstall_path(&file)?;
-        }
-    }
-    fs::create_dir_all(path)?;
-    save_manifest(
-        manifest,
-        &format!("{}/var/lib/meow/{}/manifest.toml", root, &manifest.name),
-    )?;
-    save_filelist(root, &manifest.name, &filelist)?;
-    Ok(())
-}
-
-pub async fn uninstall(root: &str, name: &str) -> eyre::Result<()> {
-    let path = format!("{}/var/lib/meow/{}", root, name);
-    if !fs::exists(&path)? {
-        bail!("Package {} is not installed", name);
-    }
-    let manifest_path = format!("{}/var/lib/meow/{}/manifest.toml", root, name);
-    let _manifest = load_manifest(&manifest_path)?;
-    let filelist = load_filelist(root, name)?;
-    for file in filelist {
-        uninstall_path(&file)?;
-    }
-    fs::remove_dir_all(path)?;
-    Ok(())
-}
-
-fn upgrade(mzpath: &str, root: &str) -> eyre::Result<()> {
     let file = File::open(mzpath)?;
     let (mut mzlist, mut mzdata) = MeowZipReader::new(file)?;
     if root != "" {
@@ -208,17 +101,130 @@ fn upgrade(mzpath: &str, root: &str) -> eyre::Result<()> {
                     let mtime = prevmeta.modified()?;
                     // sysadmin has customized this file
                     if mtime != SystemTime::UNIX_EPOCH {
-                        let current_hash = hash_file(&entry.path)?;
+                        let org = oldmzlist
+                            .iter()
+                            .find(|x| x.path == entry.path)
+                            .map(|x| x.hash)
+                            .unwrap_or(0);
+                        let cur = hash_file(&entry.path)?;
+                        let new = entry.hash;
+                        // X-X-X
+                        if org == cur && org == new {
+                            // no operation
+                        }
+                        // X-X-Y
+                        else if org == cur && org != new {
+                            // overwrite existing
+                        }
+                        // X-Y-X
+                        else if org == new && org != cur {
+                            // skip overwriting
+                            continue;
+                        }
+                        // X-Y-Y
+                        else if org != cur && cur == new {
+                            // no operation
+                        }
+                        // X-Y-Z
+                        else {
+                            // save upgrade as a copy
+                            let mut new_dest = entry.path.with_added_extension("meow-upgrade");
+                            let mut i = 2;
+                            while new_dest.exists() {
+                                new_dest = entry
+                                    .path
+                                    .with_added_extension("meow-upgrade")
+                                    .with_added_extension(i.to_string());
+                                i += 1;
+                            }
+                            install_file(&mzlist, &mut mzdata, entry, mode, &new_dest)?;
+                            // log the upgrade path
+                            let mut file = OpenOptions::new()
+                                .append(true)
+                                .open(&format!("{}/var/lib/meow/upgradable-files.txt", root))?;
+                            file.write_all(new_dest.to_str().unwrap().as_bytes())?;
+                            file.write_all(b"\n")?;
+                            continue;
+                        }
                     }
                 }
-                let file = File::create(&entry.path)?;
-                file.set_modified(SystemTime::UNIX_EPOCH)?;
-                let mut writer = BufWriter::new(file);
-                io::copy(&mut mzdata.next_file(&mzlist), &mut writer)?;
-                unix::fs::chown(&entry.path, Some(entry.uid), Some(entry.gid))?;
-                mode.apply_to_path(&entry.path)?;
+                install_file(&mzlist, &mut mzdata, entry, mode, &entry.path)?;
             }
         }
     }
+    install_mzlist(&mzlist, &mzlistpath)?;
+    Ok(())
+}
+
+fn install_mzlist(mzlist: &[Entry], mzlistpath: &str) -> eyre::Result<()> {
+    let file = File::create(mzlistpath)?;
+    let writer = BufWriter::new(file);
+    let mzlistwriter = MZlistWriter::new(writer, mzlist)?;
+    mzlistwriter.finish()?;
+    Ok(())
+}
+
+fn install_file<T>(
+    mzlist: &[Entry],
+    mzdata: &mut MeowZipReader<T>,
+    entry: &Entry,
+    mode: Mode,
+    dest: &Path,
+) -> io::Result<()>
+where
+    T: Read,
+{
+    let file = File::create(dest)?;
+    file.set_modified(SystemTime::UNIX_EPOCH)?;
+    let mut writer = BufWriter::new(file);
+    io::copy(&mut mzdata.next_file(&mzlist), &mut writer)?;
+    unix::fs::chown(dest, Some(entry.uid), Some(entry.gid))?;
+    mode.apply_to_path(dest)?;
+    Ok(())
+}
+
+pub fn install(root: &str, manifest: &Manifest, mzpath: &str) -> eyre::Result<()> {
+    fs::create_dir_all(&format!(
+        "{}/var/lib/meow/installed/{}",
+        root, &manifest.name
+    ))?;
+    install_meowzip(&manifest.name, mzpath, root)?;
+    save_manifest(
+        manifest,
+        &format!(
+            "{}/var/lib/meow/installed/{}/manifest.toml",
+            root, &manifest.name
+        ),
+    )?;
+    Ok(())
+}
+
+pub fn uninstall(root: &str, name: &str) -> eyre::Result<()> {
+    let mzpath = &format!("{}/var/lib/meow/installed/{}/mzlist", root, name);
+    let file = File::open(mzpath)?;
+    let (mut mzlist, _) = MeowZipReader::new(file)?;
+    // in reverse order, meow zip files are removed first, then their parent dirs are
+    mzlist.reverse();
+    for entry in mzlist {
+        uninstall_file(&entry.path)?;
+    }
+    Ok(())
+}
+
+fn uninstall_file(path: &Path) -> io::Result<()> {
+    if !fs::exists(path)? {
+        return Ok(());
+    }
+    let metadata = fs::symlink_metadata(path)?;
+    if metadata.is_symlink() || metadata.is_file() {
+        fs::remove_file(path)?;
+    } else if metadata.is_dir() {
+        match fs::remove_dir(path) {
+            Ok(()) => (),
+            Err(e) if e.kind() == io::ErrorKind::DirectoryNotEmpty => (),
+            Err(e) => return Err(e),
+        }
+    }
+
     Ok(())
 }

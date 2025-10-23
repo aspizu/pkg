@@ -1,7 +1,6 @@
 use std::{
     fs::{
         self,
-        File,
         OpenOptions,
     },
     hash::Hasher,
@@ -21,6 +20,8 @@ use std::{
 };
 
 use xxhash_rust::xxh3;
+
+use crate::meowzip::reader::Entry;
 
 fn get_filelist(dir: PathBuf, out: &mut Vec<PathBuf>) -> io::Result<()> {
     let mut entries = vec![];
@@ -72,8 +73,9 @@ pub fn hash_file(path: &Path) -> io::Result<u64> {
 
 fn write_entry<T>(out: &mut T, path: &Path) -> io::Result<()>
 where T: Write {
-    let filename = path.to_str().unwrap().strip_suffix(".").unwrap();
-    let meta = path.metadata()?;
+    let filename = path.to_str().unwrap().strip_prefix('.').unwrap();
+    let filename = if filename == "" { "/" } else { filename };
+    let meta = fs::symlink_metadata(path)?;
     let is_dir = meta.is_dir();
     let is_symlink = meta.is_symlink();
     out.write_all(&filename.len().to_le_bytes())?;
@@ -112,6 +114,22 @@ where T: Write {
             .open(path)?;
         let mut reader = BufReader::new(file);
         io::copy(&mut reader, out)?;
+    }
+    Ok(())
+}
+
+pub fn write_mzlist<T>(out: &mut T, mzlist: &[Entry]) -> io::Result<()>
+where T: Write {
+    out.write_all(&mzlist.len().to_le_bytes())?;
+    for entry in mzlist {
+        let path = entry.path.to_str().unwrap().as_bytes();
+        out.write_all(&path.len().to_le_bytes())?;
+        out.write_all(path)?;
+        out.write_all(&entry.size.to_le_bytes())?;
+        out.write_all(&entry.mode.to_le_bytes())?;
+        out.write_all(&entry.uid.to_le_bytes())?;
+        out.write_all(&entry.gid.to_le_bytes())?;
+        out.write_all(&entry.hash.to_le_bytes())?;
     }
     Ok(())
 }

@@ -21,12 +21,13 @@ pub async fn zip(path: PathBuf, list: bool) -> eyre::Result<()> {
             let mode = Mode::from(entry.mode);
             assert!(mode.mode() == entry.mode);
             println!(
-                "{} {}:{} {:>10} {}",
+                "{} {}:{} {:>8} {:<64} {:X}",
                 mode.to_string(),
                 entry.uid,
                 entry.gid,
                 human_bytes(entry.size as f64),
-                entry.path.display()
+                entry.path.display(),
+                entry.hash,
             );
         }
     } else {

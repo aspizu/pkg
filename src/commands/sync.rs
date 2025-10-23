@@ -1,13 +1,21 @@
-use std::fs;
+use std::{
+    fs,
+    fs::File,
+    io::Read,
+};
 
 use eyre::{
     Context,
     bail,
 };
+use minisign_verify::Signature;
 use tokio::process::Command;
 
 use crate::{
-    config::load_config,
+    config::{
+        load_config,
+        load_keys,
+    },
     index::{
         resolve_dependencies,
         update_index,
@@ -18,8 +26,9 @@ use crate::{
 
 pub async fn sync(root: Option<String>) -> eyre::Result<()> {
     let root = root.unwrap_or_default();
-    fs::create_dir_all(format!("{}/tmp/meow/meowzips", &root))?;
+    fs::create_dir_all("/tmp/meow/meowzips")?;
     let config = load_config(&root)?;
+    let keys = load_keys(&config)?;
     let index = update_index(&root, &config).await?;
     let mut packages: Vec<String> = vec![];
     for package_name in &config.packages {
@@ -30,7 +39,10 @@ pub async fn sync(root: Option<String>) -> eyre::Result<()> {
     }
     let mut to_upgrade: Vec<&str> = vec![];
     for package_name in &packages {
-        let old_manifest_path = format!("{}/var/lib/meow/{}/manifest.toml", &root, &package_name);
+        let old_manifest_path = format!(
+            "{}/var/lib/meow/installed/{}/manifest.toml",
+            &root, &package_name
+        );
         let old_manifest = if fs::exists(&old_manifest_path)? {
             Some(load_manifest(&old_manifest_path)?)
         } else {
@@ -51,32 +63,75 @@ pub async fn sync(root: Option<String>) -> eyre::Result<()> {
                 "-c",
                 &format!("{}/{}.mz", &config.index, manifest.fullname()),
             ])
-            .current_dir(&format!("{}/tmp/meow/meowzips", &root))
+            .current_dir("/tmp/meow/meowzips")
             .status()
             .await?
             .exit_ok()
-            .context("Failed to download package tarball")?;
+            .context("Failed to download package meowzip")?;
+        Command::new("/usr/bin/wget")
+            .args([
+                "-c",
+                &format!("{}/{}.mz.sig", &config.index, manifest.fullname()),
+            ])
+            .current_dir("/tmp/meow/meowzips")
+            .status()
+            .await?
+            .exit_ok()
+            .context("Failed to download package signature")?;
+        let signature = Signature::from_file(&format!(
+            "/tmp/meow/meowzips/{}.mz.sig",
+            manifest.fullname()
+        ))
+        .context("Failed to read package signature.")?;
+        let mzpath = format!("/tmp/meow/meowzips/{}.mz", manifest.fullname());
+
+        // Verify signature with any of the available keys
+        let mut verified = false;
+        for key in &keys {
+            let mut file = File::open(&mzpath)?;
+            let mut verifier = key.verify_stream(&signature)?;
+            let mut buffer = [0u8; 8192]; // 8KB buffer
+
+            loop {
+                let bytes_read = file
+                    .read(&mut buffer)
+                    .context("Error reading package file")?;
+                if bytes_read == 0 {
+                    break; // End of file
+                }
+                verifier.update(&buffer[..bytes_read]);
+            }
+
+            // Try to verify with this key
+            if verifier.finalize().is_ok() {
+                verified = true;
+                break;
+            }
+        }
+
+        if !verified {
+            bail!(
+                "Signature verification failed for package {}",
+                manifest.fullname()
+            );
+        }
     }
     for package_name in to_upgrade {
         let manifest = &index[package_name];
         package::install(
             &root,
             manifest,
-            &format!("{}/tmp/meow/meowzips/{}.mz", &root, manifest.fullname()),
-        )
-        .await?;
+            &format!("/tmp/meow/meowzips/{}.mz", manifest.fullname()),
+        )?;
     }
-    for entry in fs::read_dir(format!("{}/var/lib/meow", root))? {
+    for entry in fs::read_dir(format!("{}/var/lib/meow/installed", root))? {
         let entry = entry?;
         let name = entry.file_name();
         let name = name.to_str().unwrap();
-        if ["index.toml", "lockfile.txt"].contains(&name) {
-            continue;
-        }
         if packages.iter().any(|needed| *needed == name) {
             continue;
         }
-        package::uninstall(&root, name).await?;
+        package::uninstall(&root, name)?;
     }
     Ok(())
 }

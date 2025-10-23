@@ -58,35 +58,3 @@ where T: Read {
     }
     Ok(filelist)
 }
-
-pub fn split_archive(filelist: &[Entry]) -> eyre::Result<usize> {
-    let mut length = 0;
-
-    // filelist count
-    length += 8;
-
-    for entry in filelist {
-        // filename length
-        length += 8;
-
-        // filename
-        length += entry.path.to_str().unwrap().len();
-
-        // size
-        length += 8;
-
-        // mode
-        length += 4;
-
-        // uid
-        length += 4;
-
-        // gid
-        length += 4;
-
-        // hash
-        length += 8;
-    }
-
-    Ok(length)
-}

@@ -80,3 +80,25 @@ where T: Write
         Ok(())
     }
 }
+
+pub struct MZlistWriter<T>
+where T: Write
+{
+    pub inner: zstd::Encoder<'static, T>,
+}
+
+impl<T> MZlistWriter<T>
+where T: Write
+{
+    pub fn new(mut inner: T, mzlist: &[Entry]) -> eyre::Result<Self> {
+        inner.write_all(b"MEOW")?;
+        let mut encoder = zstd::Encoder::new(inner, 0)?;
+        writer::write_mzlist(&mut encoder, mzlist)?;
+        Ok(Self { inner: encoder })
+    }
+
+    pub fn finish(self) -> eyre::Result<()> {
+        self.inner.finish()?;
+        Ok(())
+    }
+}
