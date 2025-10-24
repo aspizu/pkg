@@ -79,7 +79,7 @@ pub async fn sync(root: Option<String>) -> eyre::Result<()> {
             .exit_ok()
             .context("Failed to download package signature")?;
         let signature = Signature::from_file(&format!(
-            "/tmp/meow/meowzips/{}.mz.sig",
+            "/tmp/meow/meowzips/{}.mz.minisig",
             manifest.fullname()
         ))
         .context("Failed to read package signature.")?;
