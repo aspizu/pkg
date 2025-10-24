@@ -67,21 +67,23 @@ fn install_meowzip(name: &str, mzpath: &str, root: &str) -> eyre::Result<()> {
             .file_type()
             .is_some_and(|file_type| file_type.is_symbolic_link());
 
+        println!("{} {:?}", mode, entry);
+
         if is_symlink {
-            if let Some(prevmeta) = prevmeta {
+            if let Some(prevmeta) = &prevmeta {
                 // this pkg wants this path to be a symlink, but the system contains a non-symlink directory here
                 // what? this should never happen, we delete the directory and its contents and replace it.
                 if prevmeta.is_dir() && !prevmeta.is_symlink() {
                     std::fs::remove_dir_all(&entry.path)?;
                 }
             }
-            println!("{:#?}", entry);
             let mut link = String::new();
             mzdata.next_file(&mzlist).read_to_string(&mut link)?;
-            // atomically create or overwrite existing symlink
-            unix::fs::symlink(link, "/tmp/meow-transit")?;
-            unix::fs::chown("/tmp/meow-transit", Some(entry.uid), Some(entry.gid))?;
-            std::fs::rename("/tmp/meow-transit", &entry.path)?;
+            if prevmeta.is_some() {
+                fs::remove_file(&entry.path)?;
+            }
+            unix::fs::symlink(link, &entry.path)?;
+            unix::fs::lchown(&entry.path, Some(entry.uid), Some(entry.gid))?;
             // mode of the symlink file itself doesn't matter, should always be 777 ?
         } else {
             if is_directory {

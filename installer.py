@@ -12,7 +12,7 @@ binutils gmp mpfr mpc attr acl libcap libxcrypt shadow gcc ncurses sed psmisc ge
 bison grep bash libtool gdbm gperf expat inetutils less perl perl-xml-parser intltool
 autoconf automake openssl libelf libffi python ninja coreutils diffutils gawk findutils
 groff gzip iproute2 kbd libpipeline make patch tar texinfo udev procps-ng util-linux
-e2fsprogs sysklogd sysvinit
+e2fsprogs sysklogd sysvinit linux-headers
 """
 
 

@@ -32,7 +32,7 @@ fn get_filelist(dir: PathBuf, out: &mut Vec<PathBuf>) -> io::Result<()> {
     entries.sort();
     out.push(dir);
     for entry in entries {
-        if entry.is_dir() {
+        if entry.is_dir() && !entry.is_symlink() {
             get_filelist(entry, out)?;
         } else {
             out.push(entry);
