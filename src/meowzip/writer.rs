@@ -51,7 +51,7 @@ where T: Write {
         write_entry(&mut *out, entry)?;
     }
     for entry in &filelist {
-        if entry.is_dir() {
+        if entry.is_dir() && !entry.is_symlink() {
             continue;
         }
         write_file(&mut *out, entry)?;

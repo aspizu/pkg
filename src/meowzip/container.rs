@@ -1,4 +1,5 @@
 use std::io::{
+    self,
     BufReader,
     Read,
     Take,
@@ -56,6 +57,11 @@ where T: Read
         let reader = self.inner.by_ref().take(filelist[self.i].size as u64);
         self.i += 1;
         reader
+    }
+
+    pub fn skip_file(&mut self, filelist: &[Entry]) -> io::Result<()> {
+        io::copy(&mut self.next_file(filelist), &mut io::sink())?;
+        Ok(())
     }
 }
 

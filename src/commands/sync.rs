@@ -24,6 +24,16 @@ use crate::{
     package,
 };
 
+async fn wget(url: &str, cwd: &str) -> eyre::Result<()> {
+    Command::new("/usr/bin/wget")
+        .args(["-nc", url])
+        .current_dir(cwd)
+        .status()
+        .await?
+        .exit_ok()?;
+    Ok(())
+}
+
 pub async fn sync(root: Option<String>) -> eyre::Result<()> {
     let root = root.unwrap_or_default();
     fs::create_dir_all("/tmp/meow/meowzips")?;
@@ -58,26 +68,18 @@ pub async fn sync(root: Option<String>) -> eyre::Result<()> {
     }
     for package_name in &to_upgrade {
         let manifest = &index[*package_name];
-        Command::new("/usr/bin/wget")
-            .args([
-                "-c",
-                &format!("{}/{}.mz", &config.index, manifest.fullname()),
-            ])
-            .current_dir("/tmp/meow/meowzips")
-            .status()
-            .await?
-            .exit_ok()
-            .context("Failed to download package meowzip")?;
-        Command::new("/usr/bin/wget")
-            .args([
-                "-c",
-                &format!("{}/{}.mz.minisig", &config.index, manifest.fullname()),
-            ])
-            .current_dir("/tmp/meow/meowzips")
-            .status()
-            .await?
-            .exit_ok()
-            .context("Failed to download package signature")?;
+        wget(
+            &format!("{}/{}.mz", &config.index, manifest.fullname()),
+            "/tmp/meow/meowzips",
+        )
+        .await
+        .context("Failed to download package meowzip")?;
+        wget(
+            &format!("{}/{}.mz.minisig", &config.index, manifest.fullname()),
+            "/tmp/meow/meowzips",
+        )
+        .await
+        .context("Failed to download package signature")?;
         let signature = Signature::from_file(&format!(
             "/tmp/meow/meowzips/{}.mz.minisig",
             manifest.fullname()

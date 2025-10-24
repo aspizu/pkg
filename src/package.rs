@@ -75,6 +75,7 @@ fn install_meowzip(name: &str, mzpath: &str, root: &str) -> eyre::Result<()> {
                     std::fs::remove_dir_all(&entry.path)?;
                 }
             }
+            println!("{:#?}", entry);
             let mut link = String::new();
             mzdata.next_file(&mzlist).read_to_string(&mut link)?;
             // atomically create or overwrite existing symlink
@@ -84,6 +85,7 @@ fn install_meowzip(name: &str, mzpath: &str, root: &str) -> eyre::Result<()> {
             // mode of the symlink file itself doesn't matter, should always be 777 ?
         } else {
             if is_directory {
+                mzdata.skip_file(&mzlist)?;
                 // directory already exists, it was probably created by this package
                 // or some other package. we keep the existing permissions, and allow changes
                 // by the sysadmin
@@ -118,6 +120,8 @@ fn install_meowzip(name: &str, mzpath: &str, root: &str) -> eyre::Result<()> {
                         }
                         // X-Y-X
                         else if org == new && org != cur {
+                            // discard the file
+                            mzdata.skip_file(&mzlist)?;
                             // skip overwriting
                             continue;
                         }
