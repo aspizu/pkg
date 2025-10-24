@@ -7,7 +7,7 @@ from pathlib import Path
 import tomli_w
 
 base = """\
-configuration iana-etc glibc zlib bzip2 xz lz4 zstd file readline m4 bc flex meowconf
+configuration iana-etc glibc zlib bzip2 xz lz4 zstd file readline m4 bc flex pkgconf
 binutils gmp mpfr mpc attr acl libcap libxcrypt shadow gcc ncurses sed psmisc gettext
 bison grep bash libtool gdbm gperf expat inetutils less perl perl-xml-parser intltool
 autoconf automake openssl libelf libffi python ninja coreutils diffutils gawk findutils
