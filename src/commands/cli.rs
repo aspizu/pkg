@@ -7,10 +7,7 @@ use clap::{
 use clap_derive::Subcommand;
 
 use crate::commands::{
-    reconfigure::{
-        self,
-        reconfigure,
-    },
+    reconfigure::reconfigure,
     sync::sync,
     zip::zip,
 };
