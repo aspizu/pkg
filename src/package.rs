@@ -67,8 +67,6 @@ fn install_meowzip(name: &str, mzpath: &str, root: &str) -> eyre::Result<()> {
             .file_type()
             .is_some_and(|file_type| file_type.is_symbolic_link());
 
-        println!("{} {:?}", mode, entry);
-
         if is_symlink {
             if let Some(prevmeta) = &prevmeta {
                 // this pkg wants this path to be a symlink, but the system contains a non-symlink directory here
@@ -146,6 +144,7 @@ fn install_meowzip(name: &str, mzpath: &str, root: &str) -> eyre::Result<()> {
                             install_file(&mzlist, &mut mzdata, entry, mode, &new_dest)?;
                             // log the upgrade path
                             let mut file = OpenOptions::new()
+                                .create(true)
                                 .append(true)
                                 .open(&format!("{}/var/lib/meow/upgradable-files.txt", root))?;
                             file.write_all(new_dest.to_str().unwrap().as_bytes())?;
