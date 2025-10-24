@@ -254,7 +254,7 @@ fn _run_hook(package: &str, hook: &str) -> eyre::Result<()> {
         .args([
             "-c",
             &format!(
-                "set -e; source /var/lib/meow/installed/{}/configure.sh; {};",
+                "set -e\nSCRIPT=/var/lib/meow/installed/{}/configure.sh\nif [[ -f $SCRIPT ]]\nthen\nsource $SCRIPT\n{}\nfi",
                 package, hook,
             ),
             "reconfigure",
