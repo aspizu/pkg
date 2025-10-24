@@ -93,7 +93,7 @@ fn install_meowzip(name: &str, mzpath: &str, root: &str) -> eyre::Result<()> {
                     continue;
                 }
                 fs::create_dir(&entry.path)?;
-                unix::fs::chown(&entry.path, Some(entry.uid), Some(entry.gid))?;
+                unix::fs::lchown(&entry.path, Some(entry.uid), Some(entry.gid))?;
                 mode.apply_to_path(&entry.path)?;
                 // directory entries are empty, their size value is nonsense
             } else {
@@ -183,8 +183,8 @@ where
     file.set_modified(SystemTime::UNIX_EPOCH)?;
     let mut writer = BufWriter::new(file);
     io::copy(&mut mzdata.next_file(&mzlist), &mut writer)?;
-    unix::fs::chown(dest, Some(entry.uid), Some(entry.gid))?;
-    mode.apply_to_path(dest)?;
+    unix::fs::lchown(dest, Some(entry.uid), Some(entry.gid))?;
+    mode.set_mode_path(dest)?;
     Ok(())
 }
 
