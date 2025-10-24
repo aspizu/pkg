@@ -71,7 +71,7 @@ pub async fn sync(root: Option<String>) -> eyre::Result<()> {
         Command::new("/usr/bin/wget")
             .args([
                 "-c",
-                &format!("{}/{}.mz.sig", &config.index, manifest.fullname()),
+                &format!("{}/{}.mz.minisig", &config.index, manifest.fullname()),
             ])
             .current_dir("/tmp/meow/meowzips")
             .status()
