@@ -203,12 +203,16 @@ pub fn install(root: &str, manifest: &Manifest, mzpath: &str) -> eyre::Result<()
             root, &manifest.name
         ),
     )?;
-    run_hook(&manifest.name, "install")?;
+    if root == "" {
+        run_hook(&manifest.name, "install")?;
+    }
     Ok(())
 }
 
 pub fn uninstall(root: &str, name: &str) -> eyre::Result<()> {
-    run_hook(name, "uninstall")?;
+    if root == "" {
+        run_hook(name, "uninstall")?;
+    }
     let mzpath = &format!("{}/var/lib/meow/installed/{}/mzlist", root, name);
     let file = File::open(mzpath)?;
     let (mut mzlist, _) = MeowZipReader::new(file)?;
