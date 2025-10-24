@@ -7,6 +7,10 @@ use clap::{
 use clap_derive::Subcommand;
 
 use crate::commands::{
+    reconfigure::{
+        self,
+        reconfigure,
+    },
     sync::sync,
     zip::zip,
 };
@@ -26,6 +30,9 @@ enum Command {
     /// Sync packages installed on this system to the index.
     #[command()]
     Sync,
+    /// Manually reconfigure a package.
+    #[command()]
+    Reconfigure { package: String },
     /// Perform meow zip operations. Default operation is to zip current directory.
     Zip {
         /// Path to a meow zip file.
@@ -51,6 +58,9 @@ pub async fn cli() -> eyre::Result<()> {
         }
         Command::Sync => {
             sync(args.root).await?;
+        }
+        Command::Reconfigure { package } => {
+            reconfigure(&package)?;
         }
         Command::Zip { file, list } => {
             zip(file, list).await?;

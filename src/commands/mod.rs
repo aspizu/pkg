@@ -1,4 +1,5 @@
 mod cli;
+mod reconfigure;
 mod sync;
 mod zip;
 

@@ -17,9 +17,11 @@ use std::{
         Path,
         PathBuf,
     },
+    process::Command,
     time::SystemTime,
 };
 
+use eyre::Context;
 use file_mode::Mode;
 
 use crate::{
@@ -201,10 +203,12 @@ pub fn install(root: &str, manifest: &Manifest, mzpath: &str) -> eyre::Result<()
             root, &manifest.name
         ),
     )?;
+    run_hook(&manifest.name, "install")?;
     Ok(())
 }
 
 pub fn uninstall(root: &str, name: &str) -> eyre::Result<()> {
+    run_hook(name, "uninstall")?;
     let mzpath = &format!("{}/var/lib/meow/installed/{}/mzlist", root, name);
     let file = File::open(mzpath)?;
     let (mut mzlist, _) = MeowZipReader::new(file)?;
@@ -231,5 +235,33 @@ fn uninstall_file(path: &Path) -> io::Result<()> {
         }
     }
 
+    Ok(())
+}
+
+pub fn run_hook(package: &str, hook: &str) -> eyre::Result<()> {
+    if let Err(err) = _run_hook(package, hook) {
+        println!("{}", err);
+    }
+    Ok(())
+}
+
+fn _run_hook(package: &str, hook: &str) -> eyre::Result<()> {
+    Command::new("/usr/bin/bash")
+        .args([
+            "-c",
+            &format!(
+                "set -e; source /var/lib/meow/installed/{}; {};",
+                package, hook,
+            ),
+            "reconfigure",
+        ])
+        .status()?
+        .exit_ok()
+        .with_context(|| {
+            format!(
+                "The package {}'s configuration hook {} failed.",
+                package, hook
+            )
+        })?;
     Ok(())
 }
