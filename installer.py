@@ -7,12 +7,16 @@ from pathlib import Path
 import tomli_w
 
 base = """\
-configuration iana-etc glibc zlib bzip2 xz lz4 zstd file readline m4 bc flex pkgconf
-binutils gmp mpfr mpc attr acl libcap libxcrypt shadow gcc ncurses sed psmisc gettext
-bison grep bash libtool gdbm gperf expat inetutils less perl perl-xml-parser intltool
-autoconf automake openssl libelf libffi python ninja coreutils diffutils gawk findutils
-groff gzip iproute2 kbd libpipeline make patch tar texinfo udev procps-ng util-linux
-e2fsprogs sysklogd sysvinit linux-headers libtasn1 p11-kit make-ca libpsl wget
+configuration acl        flex     groff            libcap         m4       patch            sysklogd    zlib
+attr          coreutils  gawk     gzip             libelf         make     perl             sysvinit    zstd
+autoconf      curl       gcc      iana-etc         libffi         make-ca  perl-xml-parser  tar
+automake      dash       gdbm     inetutils        libpipeline    mpc      pkgconf          texinfo
+bash          diffutils  gettext  intltool         libpsl         mpfr     procps-ng        tzdata
+bc            e2fsprogs  git      iproute2         libtasn1       ncurses  psmisc           udev
+binutils      expat      glibc    kakoune          libtool        ninja    python           udev-lfs
+bison         fastfetch  gmp      kbd              libxcrypt      openssh  readline         util-linux
+bzip2         file       gperf    less             linux-headers  openssl  sed              wget
+cmake         findutils  grep     lfs-bootscripts  lz4            p11-kit  shadow           xz
 """
 
 
