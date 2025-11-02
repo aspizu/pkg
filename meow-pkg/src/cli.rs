@@ -2,7 +2,9 @@ use std::path::PathBuf;
 
 use clap::{Parser, Subcommand};
 
+use crate::info::info;
 use crate::install::install;
+use crate::list::list;
 use crate::remove::remove;
 
 #[derive(Parser)]
@@ -28,6 +30,13 @@ enum Command {
         /// Name of package to uninstall
         package: String,
     },
+    /// List installed packages
+    List,
+    /// Show information about an installed package
+    Info {
+        /// Name of package to query
+        package: String,
+    },
 }
 
 pub fn run() -> eyre::Result<()> {
@@ -36,5 +45,7 @@ pub fn run() -> eyre::Result<()> {
     match args.command {
         Command::Install { package, force } => install(package, force, root),
         Command::Remove { package } => remove(package, root),
+        Command::List => list(root),
+        Command::Info { package } => info(root, package),
     }
 }

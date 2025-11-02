@@ -475,6 +475,7 @@ dependencies = [
  "color-eyre",
  "eyre",
  "file-mode",
+ "humansize",
  "libmeow",
  "redb",
 ]
