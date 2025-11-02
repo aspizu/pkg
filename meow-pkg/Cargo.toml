@@ -1,0 +1,12 @@
+[package]
+name = "meow-pkg"
+edition = "2024"
+
+[dependencies]
+libmeow = { path = "../libmeow" }
+clap = { version = "4.0", features = ["derive"] }
+eyre = "0.6.12"
+color-eyre = "0.6.5"
+file-mode = "0.1.2"
+redb = "3.1.0"
+bincode = "2.0.1"

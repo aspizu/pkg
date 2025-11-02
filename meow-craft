@@ -1,0 +1,93 @@
+#!/usr/bin/bash
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+CYAN='\033[0;36m'
+NC='\033[0m'
+BOLD='\033[1m'
+
+hint()
+{
+    echo -e "${CYAN}${BOLD}Hint: ${NC}$1"
+}
+
+war()
+{
+    echo -e "${GREEN}${BOLD}Warning: ${NC}$1"
+}
+
+die()
+{
+    echo -e "${RED}${BOLD}Error: ${NC}$1"
+    exit 1
+}
+
+usage()
+{
+    echo -e "\
+Build system for meowOS packages
+
+${GREEN}${BOLD}Usage: ${CYAN}${BOLD}$0 <COMMAND>
+
+${GREEN}${BOLD}Commands:
+${CYAN}${BOLD}  build    ${NC}Build a package"
+}
+
+usage_build()
+{
+    echo -e "\
+${GREEN}${BOLD}Usage: ${CYAN}${BOLD}$0 build <PACKAGE>
+
+${GREEN}${BOLD}Arguments:
+${CYAN}${BOLD}  PACKAGE    ${NC}The name of the package to build
+
+${GREEN}${BOLD}Options:
+${CYAN}${BOLD}  -i         ${NC}Drop into an interactive shell"
+}
+
+build()
+{
+    INTERACTIVE=0
+    if [[ "$2" == "-i" ]]; then
+        INTERACTIVE=1
+        RECIPE="$3"
+    elif [[ "$3" == "-i" ]]; then
+        INTERACTIVE=1
+        RECIPE="$2"
+    else
+        RECIPE="$2"
+    fi
+    if [[ -z "$RECIPE" ]]; then
+        usage_build
+        exit 2
+    fi
+    
+    if [[ ! -d "$RECIPE" ]]; then
+        die "Recipe directory \`$RECIPE\` does not exist"
+    fi
+
+    if [[ ! -f "$RECIPE/recipe" ]]; then
+        if [[ -f "$RECIPE/recipy" ]]; then
+            hint "\`$RECIPE/recipy\` exists, but it should be named \`$RECIPE/recipe\`"
+        fi
+        die "Recipe script \`$RECIPE/recipe\` does not exist"
+    fi
+
+    source "$RECIPE/recipe"
+
+    mkdir -p /tmp/meow-craft/sources
+    wget -nc -q --show-progress -P /tmp/meow-craft/sources "$SOURCE" || die "Failed to download source from \`$SOURCE\`"
+    SOURCE_FILENAME="/tmp/meow-craft/sources/$(basename "$SOURCE")"
+    SOURCE_DIR="/tmp/meow-craft/sources/$(tar -tf "$SOURCE_FILENAME" | head -n 1)"
+    rm -rf "$SOURCE_DIR"
+    tar -C /tmp/meow-craft/sources -xf "$SOURCE_FILENAME" || die "Failed to extract source archive"
+}
+
+case "$1" in
+    build)
+        build "$@"
+        ;;
+    *)
+        usage
+        exit 2
+        ;;
+esac
