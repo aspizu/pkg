@@ -62,7 +62,7 @@ fn write_hook(out: &mut File, hook_name: &str) -> eyre::Result<()> {
     let meta = fs::metadata(hook_name)?;
     let mut file = File::open(hook_name)?;
     out.write_all(&(meta.len() as u64).to_be_bytes())?;
-    io::copy(out, &mut file)?;
+    io::copy(&mut file, out)?;
     Ok(())
 }
 
@@ -100,6 +100,16 @@ fn get_filelist(dir: PathBuf, out: &mut Vec<PathBuf>) -> eyre::Result<()> {
     entries.sort();
     out.push(dir);
     for entry in entries {
+        if [
+            "./pre-install",
+            "./post-install",
+            "./pre-remove",
+            "./post-remove",
+        ]
+        .contains(&entry.to_str().unwrap())
+        {
+            continue;
+        }
         if entry.is_file() || entry.is_symlink() {
             out.push(entry);
         } else if entry.is_dir() {
