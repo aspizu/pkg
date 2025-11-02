@@ -2,7 +2,7 @@ use std::fs::{self, File};
 use std::io::{self, BufReader, Read};
 use std::os::linux::fs::MetadataExt;
 use std::os::unix;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::Command;
 
 use eyre::{Context, bail};
@@ -12,16 +12,18 @@ use libmeow::meowzip::{self, MeowZipEntry, MeowZipMetadata, ensure_extension_is_
 use libmeow::{columned, ensure_superuser, meowdb};
 use redb::{ReadOnlyTable, ReadableDatabase};
 
-pub fn install(path: PathBuf, force: bool) -> eyre::Result<()> {
+use crate::remove::uninstall_path;
+
+pub fn install(path: PathBuf, force: bool, root: PathBuf) -> eyre::Result<()> {
     ensure_superuser()?;
     ensure_extension_is_mz(&path)?;
-    let file = File::open(&path).context("Failed to open package file")?;
-    let mut reader = BufReader::new(file);
-    let pkgmeta = meowzip::read_metadata(&mut reader)?;
-    let db = meowdb::open()?;
+    let mut mz = BufReader::new(File::open(&path).context("Failed to open package file")?);
+    let pkgmeta = meowzip::read_metadata(&mut mz)?;
+    let db = meowdb::open(&root)?;
     let read_txn = db.begin_read()?;
     let pkgs_table = read_txn.open_table(meowdb::PACKAGES)?;
     let files_table = read_txn.open_table(meowdb::FILES)?;
+
     let mut missing = vec![];
     for dependency in &pkgmeta.depends {
         if pkgs_table.get(dependency.as_str())?.is_none() {
@@ -33,36 +35,28 @@ pub fn install(path: PathBuf, force: bool) -> eyre::Result<()> {
         columned::print(&missing);
         bail!("Cannot install package due to missing dependencies");
     }
-    let old_pkgmeta: Option<MeowZipMetadata> = pkgs_table.get(pkgmeta.name.as_str())?.map(|row| {
-        let bytes = row.value();
-        bincode::decode_from_slice(bytes, bincode::config::standard())
-            .unwrap()
-            .0
-    });
-    if old_pkgmeta.as_ref().is_some() && !force {
-        bail!(
-            "Package '{}' is already installed, use `--force` to reinstall",
-            pkgmeta.name
-        );
+
+    let oldpkgmeta = pkgs_table.get(&*pkgmeta.name)?.map(|row| MeowZipMetadata::from(row.value()));
+    if oldpkgmeta.as_ref().is_some() && !force {
+        bail!("Package '{}' is already installed, use `--force` to reinstall", pkgmeta.name);
     }
 
     let mut path_contexts = vec![];
     for entry in &pkgmeta.filelist {
-        path_contexts.push(get_path_context(entry, &files_table)?);
+        path_contexts.push(get_path_context(entry, &files_table, &root)?);
         let ctx = path_contexts.last().unwrap();
         check_conflicts(&pkgmeta, entry, ctx)?;
     }
 
-    run_hook(
-        &pkgmeta.name,
-        &pkgmeta.pre_install,
-        "pre-install",
-        old_pkgmeta
-            .as_ref()
-            .map(|m| m.version.as_str())
-            .unwrap_or_default(),
-        &pkgmeta.version,
-    )?;
+    if &root == "" {
+        run_hook(
+            &pkgmeta.name,
+            &pkgmeta.pre_install,
+            "pre-install",
+            oldpkgmeta.as_ref().map(|m| m.version.as_str()).unwrap_or_default(),
+            &pkgmeta.version,
+        )?;
+    }
 
     for (entry, ctx) in pkgmeta.filelist.iter().zip(&path_contexts) {
         if !ctx.filetype.is_directory() {
@@ -72,18 +66,22 @@ pub fn install(path: PathBuf, force: bool) -> eyre::Result<()> {
             if oldmeta.is_symlink() || oldmeta.is_file() {
                 fs::remove_file(&entry.filepath)?;
             }
+            if oldmeta.is_dir() && !oldmeta.is_symlink() {
+                continue;
+            }
         }
-        fs::create_dir_all(&entry.filepath)?;
-        unix::fs::lchown(&entry.filepath, Some(entry.uid), Some(entry.gid))?;
-        Mode::from(entry.mode).set_mode_path(&entry.filepath)?;
+        let dest = root.join(&entry.filepath);
+        fs::create_dir_all(&dest)?;
+        unix::fs::lchown(&dest, Some(entry.uid), Some(entry.gid))?;
+        Mode::from(entry.mode).set_mode_path(dest)?;
     }
 
     for (entry, ctx) in pkgmeta.filelist.iter().zip(path_contexts) {
         if ctx.filetype.is_directory() {
             continue;
         }
-        let mut dest = entry.filepath.clone();
-        let mut entrydata = reader.by_ref().take(entry.size);
+        let mut dest = root.join(&entry.filepath);
+        let mut entrydata = mz.by_ref().take(entry.size);
         match ctx.filetype {
             FileType::SymbolicLink => {
                 if let Some(oldmeta) = ctx.oldmeta {
@@ -99,15 +97,8 @@ pub fn install(path: PathBuf, force: bool) -> eyre::Result<()> {
                 unix::fs::symlink(targetpath, &dest)?;
             }
             FileType::RegularFile => {
-                let org = ctx
-                    .oldrecord
-                    .map(|oldrecord| oldrecord.checksum)
-                    .unwrap_or(0);
-                let cur = if ctx.oldmeta.is_some() {
-                    libmeow::file_checksum(&entry.filepath)?
-                } else {
-                    0
-                };
+                let org = ctx.oldrecord.map(|oldrecord| oldrecord.checksum).unwrap_or(0);
+                let cur = if ctx.oldmeta.is_some() { libmeow::file_checksum(&dest)? } else { 0 };
                 let new = entry.checksum;
                 let mut discard = false;
 
@@ -134,12 +125,12 @@ pub fn install(path: PathBuf, force: bool) -> eyre::Result<()> {
 
                 // X-Y-Z
                 if org != cur && cur != new && org != new {
-                    dest = entry.filepath.with_added_extension(".pacnew");
+                    dest = entry.filepath.with_added_extension("pacnew");
                     let mut i = 2;
                     while fs::exists(&dest)? {
-                        dest = entry
-                            .filepath
-                            .with_added_extension(".pacnew")
+                        dest = root
+                            .join(&entry.filepath)
+                            .with_added_extension("pacnew")
                             .with_added_extension(i.to_string());
                         i += 1;
                     }
@@ -167,22 +158,12 @@ pub fn install(path: PathBuf, force: bool) -> eyre::Result<()> {
     let mut pkgs_table = write_txn.open_table(meowdb::PACKAGES)?;
     let mut files_table = write_txn.open_table(meowdb::FILES)?;
 
-    if let Some(old_pkgmeta) = &old_pkgmeta {
-        for oldentry in old_pkgmeta.filelist.iter().rev() {
-            if pkgmeta
-                .filelist
-                .iter()
-                .any(|entry| entry.filepath == oldentry.filepath)
-            {
+    if let Some(old_pkgmeta) = &oldpkgmeta {
+        for entry in old_pkgmeta.filelist.iter().rev() {
+            if pkgmeta.filelist.iter().any(|e| e.filepath == entry.filepath) {
                 continue;
             }
-            let meta = fs::symlink_metadata(&oldentry.filepath)?;
-            if meta.is_symlink() || meta.is_file() {
-                fs::remove_file(&oldentry.filepath)?;
-            } else if meta.is_dir() {
-                let _ = fs::remove_dir(&oldentry.filepath);
-            }
-            files_table.remove(&oldentry.filepath.to_str().unwrap())?;
+            uninstall_path(&root, &entry.filepath, &mut files_table)?;
         }
     }
 
@@ -195,16 +176,15 @@ pub fn install(path: PathBuf, force: bool) -> eyre::Result<()> {
     let metadata_bytes = bincode::encode_to_vec(&pkgmeta, bincode::config::standard())?;
     pkgs_table.insert(pkgmeta.name.as_str(), metadata_bytes.as_slice())?;
 
-    run_hook(
-        &pkgmeta.name,
-        &pkgmeta.post_remove,
-        "post-install",
-        old_pkgmeta
-            .as_ref()
-            .map(|m| m.version.as_str())
-            .unwrap_or_default(),
-        &pkgmeta.version,
-    )?;
+    if &root == "" {
+        run_hook(
+            &pkgmeta.name,
+            &pkgmeta.post_remove,
+            "post-install",
+            oldpkgmeta.as_ref().map(|m| m.version.as_str()).unwrap_or_default(),
+            &pkgmeta.version,
+        )?;
+    }
 
     Ok(())
 }
@@ -218,15 +198,10 @@ pub fn run_hook(
 ) -> eyre::Result<()> {
     let hook = str::from_utf8(hook).unwrap();
     Command::new("/usr/bin/bash")
-        .args(&["-c", hook, arg0, arg1])
+        .args(["-c", hook, arg0, arg1])
         .status()?
         .exit_ok()
-        .with_context(|| {
-            format!(
-                "The package `{}`'s `{}` hook failed",
-                package_name, hook_name
-            )
-        })?;
+        .with_context(|| format!("The package `{}`'s `{}` hook failed", package_name, hook_name))?;
     Ok(())
 }
 
@@ -239,26 +214,15 @@ struct PathContext {
 fn get_path_context(
     entry: &MeowZipEntry,
     files_table: &ReadOnlyTable<&str, &[u8]>,
+    root: &Path,
 ) -> eyre::Result<PathContext> {
-    let mode = Mode::from(entry.mode);
-    let filepath = entry.filepath.to_str().unwrap();
-    let oldrecord: Option<FileRecord> = files_table.get(filepath)?.map(|row| {
-        let bytes = row.value();
-        bincode::decode_from_slice(bytes, bincode::config::standard())
-            .unwrap()
-            .0
-    });
-    let oldmeta = if fs::exists(&entry.filepath)? {
-        Some(fs::symlink_metadata(&entry.filepath)?)
-    } else {
-        None
-    };
-    let filetype = mode.file_type().unwrap();
-
+    let filepath = root.join(&entry.filepath);
     Ok(PathContext {
-        filetype,
-        oldrecord,
-        oldmeta,
+        filetype: Mode::from(entry.mode).file_type().unwrap(),
+        oldrecord: files_table
+            .get(entry.filepath.to_str().unwrap())?
+            .map(|row| FileRecord::from(row.value())),
+        oldmeta: if fs::exists(&filepath)? { Some(fs::symlink_metadata(filepath)?) } else { None },
     })
 }
 
@@ -267,18 +231,14 @@ fn check_conflicts(
     entry: &MeowZipEntry,
     ctx: &PathContext,
 ) -> eyre::Result<()> {
-    let alreadyowned = ctx
-        .oldrecord
-        .as_ref()
-        .is_some_and(|oldrecord| oldrecord.package != pkgmeta.name);
-    if ctx.filetype.is_symbolic_link() || ctx.filetype.is_regular_file() {
-        if alreadyowned {
-            bail!(
-                "conflict: `{}` is already owned by package `{}`",
-                entry.filepath.display(),
-                ctx.oldrecord.as_ref().unwrap().package
-            );
-        }
+    let alreadyowned =
+        ctx.oldrecord.as_ref().is_some_and(|oldrecord| oldrecord.package != pkgmeta.name);
+    if (ctx.filetype.is_symbolic_link() || ctx.filetype.is_regular_file()) && alreadyowned {
+        bail!(
+            "conflict: `{}` is already owned by package `{}`",
+            entry.filepath.display(),
+            ctx.oldrecord.as_ref().unwrap().package
+        );
     }
     let Some(oldmeta) = &ctx.oldmeta else {
         return Ok(());
@@ -301,18 +261,12 @@ fn check_conflicts(
         }
         FileType::RegularFile => {
             if !oldmeta.is_file() {
-                bail!(
-                    "conflict: `{}` is not a regular file",
-                    &entry.filepath.display()
-                );
+                bail!("conflict: `{}` is not a regular file", &entry.filepath.display());
             }
         }
         FileType::Directory => {
             if oldmeta.is_symlink() || !oldmeta.is_dir() {
-                bail!(
-                    "conflict: `{}` is not a directory",
-                    &entry.filepath.display()
-                );
+                bail!("conflict: `{}` is not a directory", &entry.filepath.display());
             }
         }
         _ => bail!("invalid file type in meowzip {}", entry.filepath.display()),

@@ -74,15 +74,7 @@ enum Command {
 
 pub fn run() -> eyre::Result<()> {
     match Cli::parse().command {
-        Command::Create {
-            file,
-            name,
-            version,
-            release,
-            depends,
-            packager,
-            license,
-        } => create(
+        Command::Create { file, name, version, release, depends, packager, license } => create(
             file,
             name,
             version,

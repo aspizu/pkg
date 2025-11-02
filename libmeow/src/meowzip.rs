@@ -101,14 +101,7 @@ where T: Read {
         file.read_exact(&mut buf_u64)?;
         let checksum = u64::from_be_bytes(buf_u64);
 
-        filelist.push(MeowZipEntry {
-            filepath,
-            size,
-            mode,
-            uid,
-            gid,
-            checksum,
-        });
+        filelist.push(MeowZipEntry { filepath, size, mode, uid, gid, checksum });
     }
     file.read_exact(&mut buf_u32)?;
     if &buf_u32 != b"ZSTD" {
@@ -133,10 +126,7 @@ where T: Read {
 }
 
 pub fn ensure_extension_is_mz(path: &Path) -> eyre::Result<()> {
-    if path
-        .extension()
-        .is_none_or(|ext| ext.to_str().unwrap() != "mz")
-    {
+    if path.extension().is_none_or(|ext| ext.to_str().unwrap() != "mz") {
         bail!("File extension must be `.mz`");
     }
     Ok(())

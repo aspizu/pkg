@@ -1,12 +1,14 @@
+use std::path::Path;
+
 use eyre::Context;
 use redb::{Database, TableDefinition};
 
-use crate::meowzip::MeowZipEntry;
+use crate::meowzip::{MeowZipEntry, MeowZipMetadata};
 
 const DB_PATH: &str = "/var/lib/meow.db";
 
-pub fn open() -> eyre::Result<redb::Database> {
-    Database::create(DB_PATH).context("Failed to open or create the database")
+pub fn open(root: &Path) -> eyre::Result<redb::Database> {
+    Database::create(root.join(DB_PATH)).context("Failed to open or create the database")
 }
 
 pub const PACKAGES: TableDefinition<&str, &[u8]> = TableDefinition::new("PKGS");
@@ -42,5 +44,17 @@ impl FileRecord {
     pub fn with_package(mut self, package: String) -> Self {
         self.package = package;
         self
+    }
+}
+
+impl From<&[u8]> for FileRecord {
+    fn from(value: &[u8]) -> Self {
+        bincode::decode_from_slice(value, bincode::config::standard()).unwrap().0
+    }
+}
+
+impl From<&[u8]> for MeowZipMetadata {
+    fn from(value: &[u8]) -> Self {
+        bincode::decode_from_slice(value, bincode::config::standard()).unwrap().0
     }
 }

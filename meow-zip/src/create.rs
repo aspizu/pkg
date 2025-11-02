@@ -81,10 +81,8 @@ fn append_signature(path: &Path) -> eyre::Result<()> {
     let sk = open_minisign_secret_key()?;
     let mut file = File::open(path).context("Failed to open meowzip file")?;
     let sig = minisign::sign(None, &sk, &mut file, None, None)?.to_bytes();
-    let mut file = OpenOptions::new()
-        .append(true)
-        .open(path)
-        .context("Failed to append meowzip file")?;
+    let mut file =
+        OpenOptions::new().append(true).open(path).context("Failed to append meowzip file")?;
     file.write_all(&sig)?;
     file.write_all(&(sig.len() as u64).to_be_bytes())?;
     println!();
@@ -100,13 +98,8 @@ fn get_filelist(dir: PathBuf, out: &mut Vec<PathBuf>) -> eyre::Result<()> {
     entries.sort();
     out.push(dir);
     for entry in entries {
-        if [
-            "./pre-install",
-            "./post-install",
-            "./pre-remove",
-            "./post-remove",
-        ]
-        .contains(&entry.to_str().unwrap())
+        if ["./pre-install", "./post-install", "./pre-remove", "./post-remove"]
+            .contains(&entry.to_str().unwrap())
         {
             continue;
         }
@@ -123,11 +116,7 @@ fn write_file_entry(out: &mut File, path: &Path) -> eyre::Result<()> {
     let filepath = path.to_str().unwrap().strip_prefix('.').unwrap();
     let filepath = if filepath.is_empty() { "/" } else { filepath };
     let meta = fs::symlink_metadata(path)?;
-    let size: u64 = if meta.is_dir() && !meta.is_symlink() {
-        0
-    } else {
-        meta.st_size()
-    };
+    let size: u64 = if meta.is_dir() && !meta.is_symlink() { 0 } else { meta.st_size() };
     let checksum = libmeow::file_checksum(path)?;
     out.write_all(&(filepath.len() as u64).to_be_bytes())?;
     out.write_all(filepath.as_bytes())?;

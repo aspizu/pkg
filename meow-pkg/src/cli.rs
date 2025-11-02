@@ -11,6 +11,8 @@ use crate::remove::remove;
 struct Cli {
     #[command(subcommand)]
     command: Command,
+    /// The root directory (default: /)
+    root: Option<PathBuf>,
 }
 
 #[derive(Subcommand)]
@@ -29,8 +31,10 @@ enum Command {
 }
 
 pub fn run() -> eyre::Result<()> {
-    match Cli::parse().command {
-        Command::Install { package, force } => install(package, force),
-        Command::Remove { package } => remove(package),
+    let args = Cli::parse();
+    let root = args.root.unwrap_or_default();
+    match args.command {
+        Command::Install { package, force } => install(package, force, root),
+        Command::Remove { package } => remove(package, root),
     }
 }

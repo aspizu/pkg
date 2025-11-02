@@ -5,11 +5,7 @@ where
     T: Write,
     U: AsRef<str>,
 {
-    let col_width = items
-        .iter()
-        .map(|item| item.as_ref().len() + 1)
-        .max()
-        .unwrap_or(0);
+    let col_width = items.iter().map(|item| item.as_ref().len() + 1).max().unwrap_or(0);
     if col_width == 0 {
         return Ok(());
     }
@@ -28,9 +24,7 @@ where
 
 pub fn print<T>(items: &[T])
 where T: AsRef<str> {
-    let cols = termion::terminal_size()
-        .map(|(cols, _rows)| cols)
-        .unwrap_or(80) as usize;
+    let cols = termion::terminal_size().map(|(cols, _rows)| cols).unwrap_or(80) as usize;
     write(&mut stdout(), items, cols).unwrap();
 }
 
@@ -43,9 +37,7 @@ mod tests {
         let mut buf = vec![];
         write(
             &mut buf,
-            &[
-                "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten",
-            ],
+            &["one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten"],
             32,
         )
         .unwrap();
