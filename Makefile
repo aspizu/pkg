@@ -21,4 +21,4 @@ uninstall:
 	for bin in $(BINARIES); do \
 		rm -f $(DESTDIR)$(PREFIX)/bin/$$bin; \
 	done
-	rm -f $(DESTDIR)$(PREFIX)/meow-craft
+	rm -f $(DESTDIR)$(PREFIX)/bin/meow-craft
