@@ -89,6 +89,11 @@ build()
     SOURCE_DIR="/tmp/meow-craft/sources/$(tar -tf "$SOURCE_PATH" | head -n 1)"
     rm -rf "$SOURCE_DIR"
     tar -C /tmp/meow-craft/sources -xf "$SOURCE_PATH" || die "Failed to extract source archive"
+
+    for fPatch in $RECIPE/*.patch; do
+        patch -Np1 -i $fPatch -d $SOURCE_DIR
+    done
+
     export RECIPE
     export DESTDIR="/tmp/meow-craft/builds/$NAME-$VERSION-$RELEASE"
     rm -rf $DESTDIR
