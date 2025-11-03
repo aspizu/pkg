@@ -71,7 +71,6 @@ build()
         exit 2
     fi
 
-    RECIPE="$(realpath "$RECIPE")"
     
     if [[ ! -d "$RECIPE" ]]; then
         die "Recipe directory \`$RECIPE\` does not exist"
@@ -104,6 +103,7 @@ build()
         done
     fi
 
+    RECIPE="$(realpath "$RECIPE")"
     export RECIPE
     export DESTDIR="/tmp/meow-craft/builds/$NAME-$VERSION-$RELEASE"
     rm -rf $DESTDIR
