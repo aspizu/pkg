@@ -70,6 +70,8 @@ build()
         usage_build
         exit 2
     fi
+
+    RECIPE="$(realpath "$RECIPE")"
     
     if [[ ! -d "$RECIPE" ]]; then
         die "Recipe directory \`$RECIPE\` does not exist"
