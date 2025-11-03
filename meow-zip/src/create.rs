@@ -74,7 +74,7 @@ fn open_minisign_secret_key() -> eyre::Result<SecretKey> {
     if !fs::exists(&skpath)? {
         bail!("minisign secret key does not exist. Generate it using `minisign -G`")
     }
-    SecretKey::from_file(skpath, None).context("Failed to open minisign secret key")
+    SecretKey::from_file(skpath, Some("".to_owned())).context("Failed to open minisign secret key")
 }
 
 fn append_signature(path: &Path) -> eyre::Result<()> {

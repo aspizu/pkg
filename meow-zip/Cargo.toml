@@ -7,7 +7,7 @@ libmeow = { path = "../libmeow" }
 clap = { version = "4.0", features = ["derive"] }
 eyre = "0.6.12"
 color-eyre = "0.6.5"
-minisign = "0.7.9"
+minisign = "=0.7.3"
 zstd = "0.13.3"
 dirs = "6.0.0"
 file-mode = "0.1.2"
