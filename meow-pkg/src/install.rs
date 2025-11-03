@@ -14,7 +14,7 @@ use redb::{ReadOnlyTable, ReadableDatabase};
 
 use crate::remove::uninstall_path;
 
-pub fn install(path: PathBuf, force: bool, root: PathBuf) -> eyre::Result<()> {
+pub fn install(path: PathBuf, overwrite: bool, breakdeps: bool, root: PathBuf) -> eyre::Result<()> {
     ensure_superuser()?;
     ensure_extension_is_mz(&path)?;
     let mut mz = BufReader::new(File::open(&path).context("Failed to open package file")?);
@@ -30,15 +30,17 @@ pub fn install(path: PathBuf, force: bool, root: PathBuf) -> eyre::Result<()> {
             missing.push(dependency.as_str());
         }
     }
-    if !missing.is_empty() {
+    if !missing.is_empty() && !breakdeps {
         println!("The following dependencies are missing:");
         columned::print(&missing);
-        bail!("Cannot install package due to missing dependencies");
+        bail!(
+            "Cannot install package due to missing dependencies, use `--breakdeps` to install anyway"
+        );
     }
 
     let oldpkgmeta = pkgs_table.get(&*pkgmeta.name)?.map(|row| MeowZipMetadata::from(row.value()));
-    if oldpkgmeta.as_ref().is_some() && !force {
-        bail!("Package '{}' is already installed, use `--force` to reinstall", pkgmeta.name);
+    if oldpkgmeta.as_ref().is_some() && !overwrite {
+        bail!("Package '{}' is already installed, use `--overwrite` to reinstall", pkgmeta.name);
     }
 
     let mut path_contexts = vec![];

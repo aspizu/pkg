@@ -23,12 +23,18 @@ enum Command {
         /// Path to meowzip package file to install
         package: PathBuf,
         /// Force reinstall if package is already installed
-        #[arg(short, long)]
-        force: bool,
+        #[arg(long)]
+        overwrite: bool,
+        /// Break dependencies
+        #[arg(long)]
+        breakdeps: bool,
     },
     Remove {
         /// Name of package to uninstall
         package: String,
+        /// Break dependencies
+        #[arg(long)]
+        breakdeps: bool,
     },
     /// List installed packages
     List,
@@ -43,8 +49,10 @@ pub fn run() -> eyre::Result<()> {
     let args = Cli::parse();
     let root = args.root.unwrap_or_default();
     match args.command {
-        Command::Install { package, force } => install(package, force, root),
-        Command::Remove { package } => remove(package, root),
+        Command::Install { package, overwrite, breakdeps } => {
+            install(package, overwrite, breakdeps, root)
+        }
+        Command::Remove { package, breakdeps } => remove(package, breakdeps, root),
         Command::List => list(root),
         Command::Info { package } => info(root, package),
     }

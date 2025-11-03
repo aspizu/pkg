@@ -8,7 +8,7 @@ use redb::{ReadableDatabase, ReadableTable, Table};
 
 use crate::install::run_hook;
 
-pub fn remove(name: String, root: PathBuf) -> eyre::Result<()> {
+pub fn remove(name: String, breakdeps: bool, root: PathBuf) -> eyre::Result<()> {
     ensure_superuser()?;
     let db = meowdb::open(&root)?;
     let read_txn = db.begin_read()?;
@@ -27,10 +27,13 @@ pub fn remove(name: String, root: PathBuf) -> eyre::Result<()> {
             dependants.push(depname.value().to_owned());
         }
     }
-    if !dependants.is_empty() {
+    if !dependants.is_empty() && !breakdeps {
         println!("The following packages depend on `{}`:", name);
         columned::print(&dependants);
-        bail!("Cannot remove package `{}` because other packages depend on it", name);
+        bail!(
+            "Cannot remove package `{}` because other packages depend on it, use `--breakdeps` to remove anyway",
+            name
+        );
     }
 
     if &root == "" {
