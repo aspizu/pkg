@@ -89,6 +89,7 @@ build()
     SOURCE_DIR="/tmp/meow-craft/sources/$(tar -tf "$SOURCE_PATH" | head -n 1)"
     rm -rf "$SOURCE_DIR"
     tar -C /tmp/meow-craft/sources -xf "$SOURCE_PATH" || die "Failed to extract source archive"
+    export RECIPE
     export DESTDIR="/tmp/meow-craft/builds/$NAME-$VERSION-$RELEASE"
     rm -rf $DESTDIR
     mkdir -p $DESTDIR
@@ -98,6 +99,11 @@ build()
     else
         bash -c "set -e; source \"$RECIPE/recipe\"; cd \"$SOURCE_DIR\"; build" || die "Build failed"
     fi
+    for i in COPYING{,.txt,.md} LICENSE{,.txt,.md} copying{,.txt,.md} license{,.txt,.md}; do
+        if [[ -f "$SOURCE_DIR/$i" ]]; then
+            install -Dm644 "$SOURCE_DIR/$i" "$DESTDIR/usr/share/licenses/$NAME/$i"
+        fi
+    done
     for i in {pre,post}-{install,remove}; do
         cp $RECIPE/$i $DESTDIR 2>/dev/null || true
     done
