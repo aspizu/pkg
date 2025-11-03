@@ -85,15 +85,22 @@ build()
     source "$RECIPE/recipe"
 
     mkdir -p /tmp/meow-craft/sources
-    wget -nc -q --show-progress -P /tmp/meow-craft/sources "$SOURCE" || die "Failed to download source from \`$SOURCE\`"
-    SOURCE_PATH="/tmp/meow-craft/sources/$(basename "$SOURCE")"
-    SOURCE_DIR="/tmp/meow-craft/sources/$(tar -tf "$SOURCE_PATH" | head -n 1)"
-    rm -rf "$SOURCE_DIR"
-    tar -C /tmp/meow-craft/sources -xf "$SOURCE_PATH" || die "Failed to extract source archive"
+    
+    if [[ -z $SOURCE ]]; then
+        SOURCE_PATH=/tmp/meow-craft/sources/null.tar.gz
+        SOURCE_DIR=/tmp/meow-craft/sources/null
+        mkdir -p "$SOURCE_DIR"
+    else
+        wget -nc -q --show-progress -P /tmp/meow-craft/sources "$SOURCE" || die "Failed to download source from \`$SOURCE\`"
+        SOURCE_PATH="/tmp/meow-craft/sources/$(basename "$SOURCE")"
+        SOURCE_DIR="/tmp/meow-craft/sources/$(tar -tf "$SOURCE_PATH" | head -n 1)"
+        rm -rf "$SOURCE_DIR"
+        tar -C /tmp/meow-craft/sources -xf "$SOURCE_PATH" || die "Failed to extract source archive"
 
-    for fPatch in $RECIPE/*.patch; do
-        patch -Np1 -i $fPatch -d $SOURCE_DIR
-    done
+        for fPatch in $RECIPE/*.patch; do
+            patch -Np1 -i $fPatch -d $SOURCE_DIR
+        done
+    fi
 
     export RECIPE
     export DESTDIR="/tmp/meow-craft/builds/$NAME-$VERSION-$RELEASE"
