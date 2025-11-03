@@ -101,7 +101,7 @@ build()
     for i in {pre,post}-{install,remove}; do
         cp $RECIPE/$i $DESTDIR 2>/dev/null || true
     done
-    rm -rf $DESTDIR/usr/share/doc
+    rm -rf $DESTDIR/usr/share/{info,doc}
     rmdir -p --ignore-fail-on-non-empty $DESTDIR/usr/share
     cd $DESTDIR
     stripall
