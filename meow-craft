@@ -1,5 +1,6 @@
 #!/usr/bin/bash
 set -e
+shopt -s nullglob
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
