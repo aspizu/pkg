@@ -99,7 +99,7 @@ build()
     else
         bash -c "set -e; source \"$RECIPE/recipe\"; cd \"$SOURCE_DIR\"; build" || die "Build failed"
     fi
-    for i in COPYING{,.txt,.md} LICENSE{,.txt,.md} copying{,.txt,.md} license{,.txt,.md}; do
+    for i in COPYING{,.txt,.md} LICENSE{,.txt,.md} copying{,.txt,.md} license{,.txt,.md} UNLICENSE; do
         if [[ -f "$SOURCE_DIR/$i" ]]; then
             install -Dm644 "$SOURCE_DIR/$i" "$DESTDIR/usr/share/licenses/$NAME/$i"
         fi
