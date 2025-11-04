@@ -2,152 +2,132 @@
 set -e
 shopt -s nullglob
 
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-CYAN='\033[0;36m'
-NC='\033[0m'
-BOLD='\033[1m'
-
-hint()
-{
-    echo -e "${CYAN}${BOLD}Hint: ${NC}$1"
-}
+Red='\033[0;31m'
+Green='\033[0;32m'
+Cyan='\033[0;36m'
+Yellow='\033[0;33m'
+Reset='\033[0m'
+Bold='\033[1m'
+Gray='\033[0;90m'
 
 warn()
 {
-    echo -e "${GREEN}${BOLD}Warning: ${NC}$1"
+    echo -e "${Yellow}${Bold}warning: ${Reset}$1"
 }
 
 die()
 {
-    echo -e "${RED}${BOLD}Error: ${NC}$1"
+    echo -e "${Red}${Bold}error: ${Reset}$1"
     exit 1
 }
 
 usage()
 {
+    [[ ! -z $1 ]] && echo -e "${Red}${Bold}error: ${Reset}$1\n"
     echo -e "\
-Build system for meowOS packages
+${Green}${Bold}Usage: ${Cyan}${Bold}$0 ${Cyan}[-i] <RECIPE>
 
-${GREEN}${BOLD}Usage: ${CYAN}${BOLD}$0 <COMMAND>
+${Green}${Bold}Options:
+  ${Cyan}${Bold}-i  ${Reset}Drop into an interactive shell instead of running build()
 
-${GREEN}${BOLD}Commands:
-${CYAN}${BOLD}  build    ${NC}Build a package"
+${Green}${Bold}Parameters:
+  ${Cyan}${Bold}RECIPE  ${Reset}Path to recipe directory"
+    exit 2
 }
 
-usage_build()
-{
-    echo -e "\
-${GREEN}${BOLD}Usage: ${CYAN}${BOLD}$0 build <PACKAGE>
+[[ ! -f ~/.config/meow-craft ]] && die "~/.config/meow-craft does not exist"
+source ~/.config/meow-craft
+[[ -z $packager ]] && die "Missing packager= in config"
+sources_directory="${sources_directory:-$HOME/.cache/meow-craft/sources}"
+builds_directory="${builds_directory:-$HOME/.cache/meow-craft/builds}"
+mkdir -p "$sources_directory" "$builds_directory"
 
-${GREEN}${BOLD}Arguments:
-${CYAN}${BOLD}  PACKAGE    ${NC}The name of the package to build
+bInteractive=0
 
-${GREEN}${BOLD}Options:
-${CYAN}${BOLD}  -i         ${NC}Drop into an interactive shell"
-}
+eval set -- "$(getopt --name "$0" --options i -- "$@")"
+while : ; do
+    case "$1" in
+        -i ) bInteractive=1 ; shift ;;
+        -- ) shift          ; break ;;
+        *  )                  usage ;;
+    esac
+done
 
-stripall() {
-    for dir in ./usr/lib ./usr/bin ./usr/sbin ./usr/libexec; do
-        [[ -d "$dir" ]] || continue
-        find "$dir" -type f \( -name '*.so*' ! -name '*dbg' -o -name '*.a' \) -exec strip --strip-debug {} +
-    done
-}
+dRecipe="$1"
 
-build()
-{
-    INTERACTIVE=0
-    if [[ "$2" == "-i" ]]; then
-        INTERACTIVE=1
-        RECIPE="$3"
-    elif [[ "$3" == "-i" ]]; then
-        INTERACTIVE=1
-        RECIPE="$2"
-    else
-        RECIPE="$2"
-    fi
-    if [[ -z "$RECIPE" ]]; then
-        usage_build
-        exit 2
-    fi
+[[   -z $dRecipe        ]] && usage "Missing path to recipe directory"
+[[ ! -d $dRecipe        ]] && die "Path to recipe directory does not exist"
+[[ ! -f $dRecipe/recipe ]] && die "Recipe \`$dRecipe/recipe\` does not exist"
 
-    
-    if [[ ! -d "$RECIPE" ]]; then
-        die "Recipe directory \`$RECIPE\` does not exist"
-    fi
+source $dRecipe/recipe
+[[ -z $name          ]] && die "Missing name= in recipe"
+[[ -z $version       ]] && die "Missing version= in recipe"
+[[ -z $release       ]] && die "Missing release= in recipe"
+[[ -z $source        ]] && die "Missing source= in recipe"
+[[  ! $release -gt 0 ]] && die "release= in recipe is invalid"
+[[ -z $license       ]] && warn "Recipe does not have license= variable specified"
 
-    if [[ ! -f "$RECIPE/recipe" ]]; then
-        if [[ -f "$RECIPE/recipy" ]]; then
-            hint "\`$RECIPE/recipy\` exists, but it should be named \`$RECIPE/recipe\`"
-        fi
-        die "Recipe script \`$RECIPE/recipe\` does not exist"
-    fi
+if [[ ! -f ~/.minisign/minisign.key ]]; then
+    die "Minisign key not found, generate it with \`minisign -G\` with an empty password"
+fi
 
-    source "$RECIPE/recipe"
+echo -e "${Green}${Bold}Downloading... ${Reset}$source"
+wget -nc -q --show-progress -P "$sources_directory" "$source"
 
-    mkdir -p /tmp/meow-craft/sources
-    
-    if [[ -z $SOURCE ]]; then
-        SOURCE_PATH=/tmp/meow-craft/sources/null.tar.gz
-        SOURCE_DIR=/tmp/meow-craft/sources/null
-        mkdir -p "$SOURCE_DIR"
-    else
-        wget -nc -q --show-progress -P /tmp/meow-craft/sources "$SOURCE" || die "Failed to download source from \`$SOURCE\`"
-        SOURCE_PATH="/tmp/meow-craft/sources/$(basename "$SOURCE")"
-        SOURCE_DIR="/tmp/meow-craft/sources/$(tar -tf "$SOURCE_PATH" | head -n 1)"
-        rm -rf "$SOURCE_DIR"
-        tar -C /tmp/meow-craft/sources -xf "$SOURCE_PATH" || die "Failed to extract source archive"
+dSource="$sources_directory/$name"
+rm -rf "$dSource"
+mkdir "$dSource"
+tar -C "$dSource" -xf "$sources_directory/$(basename $source)"
+tmp=("$dSource"/*); [[ -d ${tmp[@]} ]] && dSource="$dSource/$(basename "$tmp")"
 
-        for fPatch in $RECIPE/*.patch; do
-            patch -Np1 -i $fPatch -d $SOURCE_DIR
-        done
-    fi
+for fPatch in $dRecipe/*.patch; do
+    patch -Np1 -i "$fPatch" -d "$dSource"
+done
 
-    RECIPE="$(realpath "$RECIPE")"
-    export RECIPE
-    export DESTDIR="/tmp/meow-craft/builds/$NAME-$VERSION-$RELEASE"
-    rm -rf $DESTDIR
-    mkdir -p $DESTDIR
-    if [[ $INTERACTIVE -eq 1 ]]; then
-        echo -e "${GREEN}${BOLD}Info: ${NC}Dropping into interactive shell. Exit to continue the build. (exit 1 to abort)"
-        bash -i
-    else
-        bash -c "set -e; source \"$RECIPE/recipe\"; cd \"$SOURCE_DIR\"; build" || die "Build failed"
-    fi
-    for i in COPYING{,.txt,.md} LICENSE{,.txt,.md} copying{,.txt,.md} license{,.txt,.md} UNLICENSE; do
-        if [[ -f "$SOURCE_DIR/$i" ]]; then
-            install -Dm644 "$SOURCE_DIR/$i" "$DESTDIR/usr/share/licenses/$NAME/$i"
-        fi
-    done
-    for i in {pre,post}-{install,remove}; do
-        cp $RECIPE/$i $DESTDIR 2>/dev/null || true
-    done
-    rm -rf $DESTDIR/usr/share/{info,doc}
-    rmdir -p --ignore-fail-on-non-empty $DESTDIR/usr/share
-    cd $DESTDIR
-    stripall
-    rm -f $DESTDIR.mz
-    meow-zip create $DESTDIR.mz \
-        --name $NAME \
-        --version $VERSION \
-        --release $RELEASE \
-        --license "$LICENSE" \
-        --depends "$DEPENDS" \
-        --packager "$PACKAGER"
-    meow-zip list $DESTDIR.mz
-    echo -e "${GREEN}${BOLD}Success: ${NC}Package built at \`$DESTDIR.mz\`"
-}
 
-[[ -f /etc/meow-craft ]] && source /etc/meow-craft
+export DESTDIR="$builds_directory/$name-$version-$release"
+rm -rf "$DESTDIR"
+mkdir "$DESTDIR"
 
-[[ -z $PACKAGER ]] && die "PACKAGER is not set. Please set it in /etc/meow-craft"
+export recipe="$(realpath "$dRecipe")"
 
-case "$1" in
-    build)
-        build "$@"
-        ;;
-    *)
-        usage
-        exit 2
-        ;;
-esac
+if [[ $bInteractive -eq 1 ]]; then
+    echo -e "${Green}${Bold}Dropping into interactive shell"
+    echo -e "${Gray}(type ${Bold}\`exit\`${Gray} to continue packaging or ${Bold}\`exit 1\`${Gray} to abort)${Reset}"
+    bash -c "set -e; source '$dRecipe/recipe'; cd '$dSource'; bash -i" || exit 0
+else
+    bash -c "set -e; source '$dRecipe/recipe'; cd '$dSource'; build" || die "build() failed"
+fi
+
+for fHook in {pre,post}-{install,remove}; do
+    cp "$dRecipe/$fHook" "$DESTDIR/" 2> /dev/null || true
+done
+
+for fLicense in "$dSource"/copying* "$dSource"/license* "$dSource"/COPYING* "$dSource"/LICENSE*; do
+    [[ ! -f $fLicense ]] && continue
+    install -Dm644 "$fLicense" -t "$DESTDIR/usr/share/licenses/$name"
+done
+
+[[ ! -d $DESTDIR/usr/share/licenses/$name ]] && warn "No licenses were installed"
+
+rm -rf "$DESTDIR"/usr/share/{info,doc}
+rmdir -p --ignore-fail-on-non-empty "$DESTDIR/usr/share"
+
+echo -e "${Green}${Bold}Stripping binaries and libraries...${Reset}"
+for dir in "$DESTDIR"/usr/lib "$DESTDIR"/usr/bin "$DESTDIR"/usr/sbin "$DESTDIR"/usr/libexec; do
+    [[ -d "$dir" ]] || continue
+    find "$dir" -type f \( -name '*.so*' ! -name '*dbg' -o -name '*.a' \) -exec strip --strip-debug {} +
+done
+
+echo -e "${Green}${Bold}Creating meowzip...${Reset}"
+rm -f "$DESTDIR.mz"
+cd "$DESTDIR"
+meow-zip create "$DESTDIR.mz"  \
+         --name     "$name"    \
+         --version  "$version" \
+         --release  "$release" \
+         --depends  "$depends" \
+         --license  "$license" \
+         --packager "$packager"
+meow-zip list "$DESTDIR.mz"
+echo -e "${Green}${Bold}Built package at ${Reset}\`$DESTDIR.mz\`"
