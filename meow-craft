@@ -105,10 +105,14 @@ done
 
 for fLicense in "$dSource"/copying*   \
                 "$dSource"/license*   \
+                "$dSource"/Copying*   \
+                "$dSource"/License*   \
                 "$dSource"/COPYING*   \
                 "$dSource"/LICENSE*   \
                 "$dSource"/*/copying* \
                 "$dSource"/*/license* \
+                "$dSource"/*/Copying* \
+                "$dSource"/*/License* \
                 "$dSource"/*/COPYING* \
                 "$dSource"/*/LICENSE* ; do
     install -Dm644 "$fLicense" -t "$DESTDIR/usr/share/licenses/$name"
