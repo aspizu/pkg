@@ -122,9 +122,10 @@ rm -rf "$DESTDIR"/usr/share/{info,doc}
 rmdir -p --ignore-fail-on-non-empty "$DESTDIR/usr/share" 2> /dev/null || true
 
 echo -e "${Green}${Bold}Stripping binaries and libraries...${Reset}"
-for i in $(find "$DESTDIR"/usr/lib -type f -name \*.so* ! -name \*dbg) \
-         $(find "$DESTDIR"/usr/lib -type f -name \*.a)                 \
-         $(find "$DESTDIR"/usr/{bin,sbin,libexec} -type f); do
+for i in $(find "$DESTDIR"/usr/lib -type f -name \*.so* ! -name \*dbg 2> /dev/null) \
+         $(find "$DESTDIR"/usr/lib -type f -name \*.a                 2> /dev/null) \
+         $(find "$DESTDIR"/usr/{bin,sbin,libexec} -type f             2> /dev/null) ;
+do
     strip --strip-debug "$i" 2> /dev/null || true
 done
 
