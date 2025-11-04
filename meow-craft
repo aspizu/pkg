@@ -120,11 +120,10 @@ rm -rf "$DESTDIR"/usr/share/{info,doc}
 rmdir -p --ignore-fail-on-non-empty "$DESTDIR/usr/share"
 
 echo -e "${Green}${Bold}Stripping binaries and libraries...${Reset}"
-for dir in "$DESTDIR"/usr/lib    \
-           "$DESTDIR"/usr/bin    \
-           "$DESTDIR"/usr/sbin   \
-           "$DESTDIR"/usr/libexec; do
-    find "$dir" -type f \( -name '*.so*' ! -name '*dbg' -o -name '*.a' \) -exec strip --strip-debug {} + || true
+for i in $(find "$DESTDIR"/usr/lib -type f -name \*.so* ! -name \*dbg) \
+         $(find "$DESTDIR"/usr/lib -type f -name \*.a)                 \
+         $(find "$DESTDIR"/usr/{bin,sbin,libexec} -type f); do
+    strip --strip-debug "$i" || true
 done
 
 echo -e "${Green}${Bold}Creating meowzip...${Reset}"
