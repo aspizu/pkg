@@ -117,7 +117,7 @@ done
 [[ ! -d $DESTDIR/usr/share/licenses/$name ]] && warn "No licenses were installed"
 
 rm -rf "$DESTDIR"/usr/share/{info,doc}
-rmdir -p --ignore-fail-on-non-empty "$DESTDIR/usr/share"
+rmdir -p --ignore-fail-on-non-empty "$DESTDIR/usr/share" 2> /dev/null || true
 
 echo -e "${Green}${Bold}Stripping binaries and libraries...${Reset}"
 for i in $(find "$DESTDIR"/usr/lib -type f -name \*.so* ! -name \*dbg) \
