@@ -123,7 +123,7 @@ echo -e "${Green}${Bold}Stripping binaries and libraries...${Reset}"
 for i in $(find "$DESTDIR"/usr/lib -type f -name \*.so* ! -name \*dbg) \
          $(find "$DESTDIR"/usr/lib -type f -name \*.a)                 \
          $(find "$DESTDIR"/usr/{bin,sbin,libexec} -type f); do
-    strip --strip-debug "$i" || true
+    strip --strip-debug "$i" 2> /dev/null || true
 done
 
 echo -e "${Green}${Bold}Creating meowzip...${Reset}"
