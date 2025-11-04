@@ -65,7 +65,6 @@ source $dRecipe/recipe
 [[ -z $release       ]] && die "Missing release= in recipe"
 [[ -z $source        ]] && die "Missing source= in recipe"
 [[  ! $release -gt 0 ]] && die "release= in recipe is invalid"
-[[ -z $license       ]] && warn "Recipe does not have license= variable specified"
 
 if [[ ! -f ~/.minisign/minisign.key ]]; then
     die "Minisign key not found, generate it with \`minisign -G\` with an empty password"
@@ -118,8 +117,6 @@ for fLicense in "$dSource"/copying*   \
     install -Dm644 "$fLicense" -t "$DESTDIR/usr/share/licenses/$name"
 done
 
-[[ ! -d $DESTDIR/usr/share/licenses/$name ]] && warn "No licenses were installed"
-
 rm -rf "$DESTDIR"/usr/share/{info,doc}
 rmdir -p --ignore-fail-on-non-empty "$DESTDIR/usr/share" 2> /dev/null || true
 
@@ -142,3 +139,6 @@ meow-zip create "$DESTDIR.mz"  \
          --packager "$packager"
 meow-zip list "$DESTDIR.mz"
 echo -e "${Green}${Bold}Built package at ${Reset}\`$DESTDIR.mz\`"
+
+[[ -z $license ]] && warn "Recipe does not have license= variable specified"
+[[ ! -d $DESTDIR/usr/share/licenses/$name ]] && warn "No licenses were installed"
