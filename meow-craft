@@ -104,7 +104,6 @@ for fHook in {pre,post}-{install,remove}; do
 done
 
 for fLicense in "$dSource"/copying* "$dSource"/license* "$dSource"/COPYING* "$dSource"/LICENSE*; do
-    [[ ! -f $fLicense ]] && continue
     install -Dm644 "$fLicense" -t "$DESTDIR/usr/share/licenses/$name"
 done
 
