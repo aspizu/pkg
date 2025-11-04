@@ -9,7 +9,7 @@ use crate::list::list;
 use crate::verify::verify;
 
 #[derive(Parser)]
-#[command(about = "Archive file format for meowOS packages")]
+#[command(about = format!("{}{}", libmeow::MEOW, "Archive file format for meowOS packages"))]
 #[command(styles=libmeow::CLAP_STYLES)]
 struct Cli {
     #[command(subcommand)]

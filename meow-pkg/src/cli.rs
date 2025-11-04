@@ -8,12 +8,13 @@ use crate::list::list;
 use crate::remove::remove;
 
 #[derive(Parser)]
-#[command(about = "Package manager for meowOS")]
+#[command(about = format!("{}{}", libmeow::MEOW, "Package manager for meowOS"))]
 #[command(styles=libmeow::CLAP_STYLES)]
 struct Cli {
     #[command(subcommand)]
     command: Command,
     /// The root directory (default: /)
+    #[arg(long)]
     root: Option<PathBuf>,
 }
 
