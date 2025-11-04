@@ -80,8 +80,8 @@ mkdir "$dSource"
 tar -C "$dSource" -xf "$sources_directory/$(basename $source)"
 tmp=("$dSource"/*); [[ -d ${tmp[@]} ]] && dSource="$dSource/$(basename "$tmp")"
 
-for fPatch in $dRecipe/*.patch; do
-    patch -Np1 -i "$fPatch" -d "$dSource"
+for fPatch in "$dRecipe"/*.patch; do
+    patch -Np1 -i "$PWD/$fPatch" -d "$dSource"
 done
 
 
