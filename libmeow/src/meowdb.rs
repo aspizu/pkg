@@ -12,6 +12,9 @@ const DB_PATH: &str = "/var/lib/meow.db";
 pub fn open(root: &Path) -> eyre::Result<redb::Database> {
     let path = path_chroot(DB_PATH, root);
     let uninitialized = !fs::exists(&path).context("Failed to open or create the database")?;
+    if uninitialized {
+        fs::create_dir_all(path.parent().unwrap())?;
+    }
     let db = Database::create(path).context("Failed to open or create the database")?;
     if uninitialized {
         let write_txn = db.begin_write()?;
