@@ -63,26 +63,29 @@ source $dRecipe/recipe
 [[ -z $name          ]] && die "Missing name= in recipe"
 [[ -z $version       ]] && die "Missing version= in recipe"
 [[ -z $release       ]] && die "Missing release= in recipe"
-[[ -z $source        ]] && die "Missing source= in recipe"
 [[  ! $release -gt 0 ]] && die "release= in recipe is invalid"
 
 if [[ ! -f ~/.minisign/minisign.key ]]; then
     die "Minisign key not found, generate it with \`minisign -G\` with an empty password"
 fi
 
-echo -e "${Green}${Bold}Downloading... ${Reset}$source"
-wget -nc -q --show-progress -P "$sources_directory" "$source"
 
 dSource="$sources_directory/$name"
 rm -rf "$dSource"
 mkdir "$dSource"
-tar -C "$dSource" -xf "$sources_directory/$(basename $source)"
-tmp=("$dSource"/*); [[ -d ${tmp[@]} ]] && dSource="$dSource/$(basename "$tmp")"
 
-for fPatch in "$dRecipe"/*.patch; do
-    patch -Np1 -i "$PWD/$fPatch" -d "$dSource"
-done
+if [[ -n $source ]]; then
+    echo -e "${Green}${Bold}Downloading... ${Reset}$source"
+    wget -nc -q --show-progress -P "$sources_directory" "$source"
 
+    echo -e "${Green}${Bold}Extracting... ${Reset}"
+    tar -C "$dSource" -xf "$sources_directory/$(basename $source)"
+    tmp=("$dSource"/*); [[ -d ${tmp[@]} ]] && dSource="$dSource/$(basename "$tmp")"
+
+    for fPatch in "$dRecipe"/*.patch; do
+        patch -Np1 -i "$PWD/$fPatch" -d "$dSource"
+    done
+fi
 
 export DESTDIR="$builds_directory/$name-$version-$release"
 rm -rf "$DESTDIR"
