@@ -37,7 +37,7 @@ pub fn ensure_superuser() -> eyre::Result<()> {
     Ok(())
 }
 
-pub const MEOW: &'static str = r#"  ,-.       _,---._ __  / \
+pub const MEOW: &str = r#"  ,-.       _,---._ __  / \
  /  )    .-'       `./ /   \
 (  (   ,'            `/    /|
  \  `-"             \'\   / |
