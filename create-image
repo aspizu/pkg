@@ -73,7 +73,7 @@ for fPkg in "$dRepo"/*.mz; do
     meow-pkg --root /mnt install "$fPkg" --breakdeps
 done
 
-cat | arch-chroot /mnt << "EOF"
+cat | arch-chroot /mnt /usr/bin/bash << "EOF"
 touch /var/log/{btmp,lastlog,faillog,wtmp}
 chgrp -v utmp /var/log/lastlog
 chmod -v 664  /var/log/lastlog
@@ -107,8 +107,10 @@ cat > /etc/hosts << "EOF2"
 ::1        localhost
 EOF2
 ln -svf /usr/share/zoneinfo/Asia/Kolkata /etc/localtime
+exit
 EOF
 
-rm -f /root/meow/rootfs.tar.zstd
+rm -f rootfs.tar.xz
 echo -e "${Gray}Creating rootfs tarball...${Reset}"
-tar -cfa /root/meow/rootfs.tar.zstd -C /mnt .
+tar -cJf rootfs.tar.xz -C /mnt .
+echo -e "\n${Green}${Bold}Done!${Reset}"
