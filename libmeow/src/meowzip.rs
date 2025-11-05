@@ -114,7 +114,11 @@ where T: Read {
         name,
         version,
         release,
-        depends: depends.split(',').map(|s| s.trim().to_string()).collect(),
+        depends: depends
+            .split(',')
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty())
+            .collect(),
         packager,
         license,
         pre_install,
