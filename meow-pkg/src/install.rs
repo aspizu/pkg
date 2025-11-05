@@ -19,6 +19,7 @@ pub fn install(path: PathBuf, overwrite: bool, breakdeps: bool, root: PathBuf) -
     ensure_extension_is_mz(&path)?;
     let mut mz = BufReader::new(File::open(&path).context("Failed to open package file")?);
     let pkgmeta = meowzip::read_metadata(&mut mz)?;
+    let mut mz = zstd::Decoder::new(mz)?;
     let db = meowdb::open(&root)?;
     let read_txn = db.begin_read()?;
     let pkgs_table = read_txn.open_table(meowdb::PACKAGES)?;
@@ -157,26 +158,29 @@ pub fn install(path: PathBuf, overwrite: bool, breakdeps: bool, root: PathBuf) -
     }
 
     let write_txn = db.begin_write()?;
-    let mut pkgs_table = write_txn.open_table(meowdb::PACKAGES)?;
-    let mut files_table = write_txn.open_table(meowdb::FILES)?;
+    {
+        let mut pkgs_table = write_txn.open_table(meowdb::PACKAGES)?;
+        let mut files_table = write_txn.open_table(meowdb::FILES)?;
 
-    if let Some(old_pkgmeta) = &oldpkgmeta {
-        for entry in old_pkgmeta.filelist.iter().rev() {
-            if pkgmeta.filelist.iter().any(|e| e.filepath == entry.filepath) {
-                continue;
+        if let Some(old_pkgmeta) = &oldpkgmeta {
+            for entry in old_pkgmeta.filelist.iter().rev() {
+                if pkgmeta.filelist.iter().any(|e| e.filepath == entry.filepath) {
+                    continue;
+                }
+                uninstall_path(&root, &entry.filepath, &mut files_table)?;
             }
-            uninstall_path(&root, &entry.filepath, &mut files_table)?;
         }
-    }
 
-    for entry in &pkgmeta.filelist {
-        let record = FileRecord::from(entry).with_package(pkgmeta.name.clone());
-        let row = bincode::encode_to_vec(&record, bincode::config::standard())?;
-        files_table.insert(&entry.filepath.to_str().unwrap(), &*row)?;
-    }
+        for entry in &pkgmeta.filelist {
+            let record = FileRecord::from(entry).with_package(pkgmeta.name.clone());
+            let row = bincode::encode_to_vec(&record, bincode::config::standard())?;
+            files_table.insert(&entry.filepath.to_str().unwrap(), &*row)?;
+        }
 
-    let metadata_bytes = bincode::encode_to_vec(&pkgmeta, bincode::config::standard())?;
-    pkgs_table.insert(pkgmeta.name.as_str(), metadata_bytes.as_slice())?;
+        let metadata_bytes = bincode::encode_to_vec(&pkgmeta, bincode::config::standard())?;
+        pkgs_table.insert(pkgmeta.name.as_str(), metadata_bytes.as_slice())?;
+    }
+    write_txn.commit()?;
 
     if &root == "/" {
         run_hook(

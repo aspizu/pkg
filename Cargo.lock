@@ -454,6 +454,7 @@ dependencies = [
  "humansize",
  "libmeow",
  "redb",
+ "zstd",
 ]
 
 [[package]]
