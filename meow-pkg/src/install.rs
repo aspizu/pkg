@@ -161,7 +161,9 @@ pub fn install(path: PathBuf, overwrite: bool, breakdeps: bool, root: PathBuf) -
             _ => bail!("invalid file type in meowzip {}", entry.filepath.display()),
         }
         unix::fs::lchown(&dest, Some(entry.uid), Some(entry.gid))?;
-        Mode::from(entry.mode).set_mode_path_nofollow(&dest)?;
+        if !ctx.filetype.is_symbolic_link() {
+            Mode::from(entry.mode).set_mode_path_nofollow(&dest)?;
+        }
     }
 
     let write_txn = db.begin_write()?;

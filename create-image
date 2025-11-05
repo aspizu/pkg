@@ -1,0 +1,81 @@
+#!/usr/bin/bash
+set -e
+shopt -s nullglob
+
+Red='\033[0;31m'
+Green='\033[0;32m'
+Cyan='\033[0;36m'
+Yellow='\033[0;33m'
+Reset='\033[0m'
+Bold='\033[1m'
+Gray='\033[0;90m'
+
+warn()
+{
+    echo -e "${Yellow}${Bold}warning: ${Reset}$1"
+}
+
+die()
+{
+    echo -e "${Red}${Bold}error: ${Reset}$1"
+    exit 1
+}
+
+usage()
+{
+    [[ ! -z $1 ]] && echo -e "${Red}${Bold}error: ${Reset}$1\n"
+    echo -e "\
+${Green}${Bold}Usage: ${Cyan}${Bold}$0 ${Cyan}[--nocontainer] <REPOSITORY>
+
+${Green}${Bold}Options:
+  ${Cyan}${Bold}--nocontainer  ${Reset}Build the image without using a container
+
+${Green}${Bold}Parameters:
+  ${Cyan}${Bold}REPOSITORY  ${Reset}Path to directory with meowzips on host system"
+    exit 2
+}
+
+bNoContainer=0
+
+eval set -- "$(getopt --name "$0" --options '' --long nocontainer -- "$@")"
+while : ; do
+    case "$1" in
+        --nocontainer) bNoContainer=1 ; shift ;;
+        --           ) shift          ; break ;;
+        *            )                  usage ;;
+    esac
+done
+
+dRepo="$1"
+
+[[   -z $dRepo ]] && usage "Missing positional argument REPOSITORY" 
+[[ ! -d $dRepo ]] && die "$dRepo does not exist"
+
+if [[ $bNoContainer -eq 0 ]]; then
+    exec docker run --privileged --rm -it               \
+                    -v "$dRepo":/root/repo               \
+                    -v "$PWD":/root/meow                  \
+                    docker.io/rustlang/rust:nightly-trixie \
+                    /root/meow/create-image --nocontainer /root/repo
+fi
+
+apt update
+apt install -y arch-install-scripts
+
+cd ~/meow
+make
+make install
+
+meow-pkg --root /mnt install "$dRepo/meow-config-1.0.0-1.mz" --breakdeps
+for fPkg in "$dRepo"/*.mz; do
+    [[ $fPkg == meow-config-1.0.0-1.mz ]] && continue
+    echo -e "${Gray}Installing package ${Bold}$(basename "$fPkg")${Reset}"
+    meow-pkg --root /mnt install "$fPkg" --breakdeps
+done
+
+cat | arch-chroot /mnt << EOF
+cat /etc/os-release
+EOF
+
+rm -f /root/meow/rootfs.tar.xz
+tar -cf /root/meow/rootfs.tar.xz -C /mnt .
