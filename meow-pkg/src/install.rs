@@ -5,6 +5,7 @@ use std::os::unix;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
+use atomic_file_install::{atomic_install, atomic_symlink_file};
 use eyre::{Context, bail};
 use file_mode::{FileType, Mode};
 use libmeow::meowdb::FileRecord;
@@ -88,18 +89,21 @@ pub fn install(path: PathBuf, overwrite: bool, breakdeps: bool, root: PathBuf) -
         match ctx.filetype {
             FileType::SymbolicLink => {
                 if let Some(oldmeta) = ctx.oldmeta {
-                    if oldmeta.is_symlink() || oldmeta.is_file() {
-                        fs::remove_file(&entry.filepath)?;
-                    } else if oldmeta.is_dir() {
-                        fs::remove_dir_all(&entry.filepath)?;
+                    if oldmeta.is_dir() && !oldmeta.is_symlink() {
+                        fs::remove_dir_all(&dest)?;
                     }
                 }
                 let mut targetpath = String::new();
                 entrydata.read_to_string(&mut targetpath)?;
                 let targetpath = PathBuf::from(targetpath);
-                unix::fs::symlink(targetpath, &dest)?;
+                atomic_symlink_file(&targetpath, &dest)?;
             }
             FileType::RegularFile => {
+                if let Some(oldmeta) = &ctx.oldmeta {
+                    if oldmeta.is_dir() && !oldmeta.is_symlink() {
+                        fs::remove_dir_all(&dest)?;
+                    }
+                }
                 let org = ctx.oldrecord.map(|oldrecord| oldrecord.checksum).unwrap_or(0);
                 let cur = if ctx.oldmeta.is_some() { libmeow::file_checksum(&dest)? } else { 0 };
                 let new = entry.checksum;
@@ -128,11 +132,11 @@ pub fn install(path: PathBuf, overwrite: bool, breakdeps: bool, root: PathBuf) -
 
                 // X-Y-Z
                 if org != cur && cur != new && org != new {
-                    dest = entry.filepath.with_added_extension("pacnew");
+                    let basedest = dest;
+                    dest = basedest.with_added_extension("pacnew");
                     let mut i = 2;
                     while fs::exists(&dest)? {
-                        dest = root
-                            .join(&entry.filepath)
+                        dest = basedest
                             .with_added_extension("pacnew")
                             .with_added_extension(i.to_string());
                         i += 1;
@@ -147,8 +151,11 @@ pub fn install(path: PathBuf, overwrite: bool, breakdeps: bool, root: PathBuf) -
                 if discard {
                     io::copy(&mut entrydata, &mut io::sink())?;
                 } else {
-                    let mut newfile = File::create(&dest)?;
+                    // atomic_install will copy to parent of dest if not on same filesystem
+                    let tmpdest = PathBuf::from("/tmp/meow-pkg-tempfile");
+                    let mut newfile = File::create(&tmpdest)?;
                     io::copy(&mut entrydata, &mut newfile)?;
+                    atomic_install(&tmpdest, &dest)?;
                 }
             }
             _ => bail!("invalid file type in meowzip {}", entry.filepath.display()),
