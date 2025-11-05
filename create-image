@@ -73,10 +73,42 @@ for fPkg in "$dRepo"/*.mz; do
     meow-pkg --root /mnt install "$fPkg" --breakdeps
 done
 
-cat | arch-chroot /mnt << EOF
-cat /etc/os-release
+cat | arch-chroot /mnt << "EOF"
+touch /var/log/{btmp,lastlog,faillog,wtmp}
+chgrp -v utmp /var/log/lastlog
+chmod -v 664  /var/log/lastlog
+chmod -v 600  /var/log/btmp
+pwconv
+grpconv
+printf 'admin\n' | passwd -s root
+udev-hwdb update
+echo meow > /etc/hostname
+cat > /etc/fstab << "EOF2"
+# Begin /etc/fstab
+
+# file system  mount-point    type     options             dump  fsck
+#                                                                order
+
+/dev/<xxx>     /              <fff>    defaults            1     1
+/dev/<yyy>     swap           swap     pri=1               0     0
+proc           /proc          proc     nosuid,noexec,nodev 0     0
+sysfs          /sys           sysfs    nosuid,noexec,nodev 0     0
+devpts         /dev/pts       devpts   gid=5,mode=620      0     0
+tmpfs          /run           tmpfs    defaults            0     0
+devtmpfs       /dev           devtmpfs mode=0755,nosuid    0     0
+tmpfs          /dev/shm       tmpfs    nosuid,nodev        0     0
+cgroup2        /sys/fs/cgroup cgroup2  nosuid,noexec,nodev 0     0
+
+# End /etc/fstab
+EOF2
+make-ca -g
+cat > /etc/hosts << "EOF2"
+127.0.0.1  localhost meow
+::1        localhost
+EOF2
+ln -svf /usr/share/zoneinfo/Asia/Kolkata /etc/localtime
 EOF
 
-rm -f /root/meow/rootfs.tar.xz
+rm -f /root/meow/rootfs.tar.zstd
 echo -e "${Gray}Creating rootfs tarball...${Reset}"
-tar -cf /root/meow/rootfs.tar.xz -C /mnt .
+tar -cfa /root/meow/rootfs.tar.zstd -C /mnt .
