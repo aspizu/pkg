@@ -73,6 +73,8 @@ for fPkg in "$dRepo"/*.mz; do
     meow-pkg --root /mnt install "$fPkg" --breakdeps
 done
 
+make DESTDIR=/mnt PREFIX=/usr install
+
 cat | arch-chroot /mnt /usr/bin/bash << "EOF"
 touch /var/log/{btmp,lastlog,faillog,wtmp}
 chgrp -v utmp /var/log/lastlog
