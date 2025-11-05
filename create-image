@@ -68,7 +68,7 @@ make install
 
 meow-pkg --root /mnt install "$dRepo/meow-config-1.0.0-1.mz" --breakdeps
 for fPkg in "$dRepo"/*.mz; do
-    [[ $fPkg == meow-config-1.0.0-1.mz ]] && continue
+    [[ $(basename "$fPkg") == meow-config-1.0.0-1.mz ]] && continue
     echo -e "${Gray}Installing package ${Bold}$(basename "$fPkg")${Reset}"
     meow-pkg --root /mnt install "$fPkg" --breakdeps
 done
