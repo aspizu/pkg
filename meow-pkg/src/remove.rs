@@ -3,7 +3,7 @@ use std::path::{Path, PathBuf};
 
 use eyre::bail;
 use libmeow::meowzip::MeowZipMetadata;
-use libmeow::{columned, ensure_superuser, meowdb};
+use libmeow::{columned, ensure_superuser, meowdb, path_chroot};
 use redb::{ReadableDatabase, ReadableTable, Table};
 
 use crate::install::run_hook;
@@ -36,7 +36,7 @@ pub fn remove(name: String, breakdeps: bool, root: PathBuf) -> eyre::Result<()> 
         );
     }
 
-    if &root == "" {
+    if &root == "/" {
         run_hook(&pkgmeta.name, &pkgmeta.pre_remove, "pre-remove", &pkgmeta.version, "")?;
     }
 
@@ -48,7 +48,7 @@ pub fn remove(name: String, breakdeps: bool, root: PathBuf) -> eyre::Result<()> 
     }
     pkgs_table.remove(&*name)?;
 
-    if &root == "" {
+    if &root == "/" {
         run_hook(&pkgmeta.name, &pkgmeta.post_remove, "post-remove", &pkgmeta.version, "")?;
     }
 
@@ -60,7 +60,7 @@ pub fn uninstall_path(
     path: &Path,
     files_table: &mut Table<&str, &[u8]>,
 ) -> eyre::Result<()> {
-    let dest = root.join(path);
+    let dest = path_chroot(path, root);
     if fs::exists(&dest)? {
         let meta = fs::symlink_metadata(&dest)?;
         if meta.is_symlink() || meta.is_file() {

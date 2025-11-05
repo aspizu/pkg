@@ -5,7 +5,7 @@ pub mod meowzip;
 use std::fs::{self, File};
 use std::hash::Hasher;
 use std::io::{self, BufReader};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use clap::builder::Styles;
 use clap::builder::styling::{AnsiColor, Effects};
@@ -48,3 +48,8 @@ pub const MEOW: &str = r#"  ,-.       _,---._ __  / \
   |  | (   |        hjw | /
   )  |  \  `.___________|/
   `--'   `--'"#;
+
+pub fn path_chroot<T>(path: T, root: &Path) -> PathBuf
+where T: AsRef<Path> {
+    root.join(path.as_ref().strip_prefix("/").unwrap_or(path.as_ref()))
+}

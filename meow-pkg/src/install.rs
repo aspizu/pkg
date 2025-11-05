@@ -9,7 +9,7 @@ use eyre::{Context, bail};
 use file_mode::{FileType, Mode};
 use libmeow::meowdb::FileRecord;
 use libmeow::meowzip::{self, MeowZipEntry, MeowZipMetadata, ensure_extension_is_mz};
-use libmeow::{columned, ensure_superuser, meowdb};
+use libmeow::{columned, ensure_superuser, meowdb, path_chroot};
 use redb::{ReadOnlyTable, ReadableDatabase};
 
 use crate::remove::uninstall_path;
@@ -50,7 +50,7 @@ pub fn install(path: PathBuf, overwrite: bool, breakdeps: bool, root: PathBuf) -
         check_conflicts(&pkgmeta, entry, ctx)?;
     }
 
-    if &root == "" {
+    if &root == "/" {
         run_hook(
             &pkgmeta.name,
             &pkgmeta.pre_install,
@@ -72,7 +72,7 @@ pub fn install(path: PathBuf, overwrite: bool, breakdeps: bool, root: PathBuf) -
                 continue;
             }
         }
-        let dest = root.join(&entry.filepath);
+        let dest = path_chroot(&entry.filepath, &root);
         fs::create_dir_all(&dest)?;
         unix::fs::lchown(&dest, Some(entry.uid), Some(entry.gid))?;
         Mode::from(entry.mode).set_mode_path(dest)?;
@@ -82,7 +82,7 @@ pub fn install(path: PathBuf, overwrite: bool, breakdeps: bool, root: PathBuf) -
         if ctx.filetype.is_directory() {
             continue;
         }
-        let mut dest = root.join(&entry.filepath);
+        let mut dest = path_chroot(&entry.filepath, &root);
         let mut entrydata = mz.by_ref().take(entry.size);
         match ctx.filetype {
             FileType::SymbolicLink => {
@@ -178,7 +178,7 @@ pub fn install(path: PathBuf, overwrite: bool, breakdeps: bool, root: PathBuf) -
     let metadata_bytes = bincode::encode_to_vec(&pkgmeta, bincode::config::standard())?;
     pkgs_table.insert(pkgmeta.name.as_str(), metadata_bytes.as_slice())?;
 
-    if &root == "" {
+    if &root == "/" {
         run_hook(
             &pkgmeta.name,
             &pkgmeta.post_remove,
@@ -218,7 +218,7 @@ fn get_path_context(
     files_table: &ReadOnlyTable<&str, &[u8]>,
     root: &Path,
 ) -> eyre::Result<PathContext> {
-    let filepath = root.join(&entry.filepath);
+    let filepath = path_chroot(&entry.filepath, root);
     Ok(PathContext {
         filetype: Mode::from(entry.mode).file_type().unwrap(),
         oldrecord: files_table

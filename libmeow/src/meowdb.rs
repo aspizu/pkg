@@ -1,14 +1,27 @@
+use std::fs;
 use std::path::Path;
 
 use eyre::Context;
 use redb::{Database, TableDefinition};
 
 use crate::meowzip::{MeowZipEntry, MeowZipMetadata};
+use crate::path_chroot;
 
 const DB_PATH: &str = "/var/lib/meow.db";
 
 pub fn open(root: &Path) -> eyre::Result<redb::Database> {
-    Database::create(root.join(DB_PATH)).context("Failed to open or create the database")
+    let path = path_chroot(DB_PATH, root);
+    let uninitialized = !fs::exists(&path).context("Failed to open or create the database")?;
+    let db = Database::create(path).context("Failed to open or create the database")?;
+    if uninitialized {
+        let write_txn = db.begin_write()?;
+        {
+            write_txn.open_table(PACKAGES)?;
+            write_txn.open_table(FILES)?;
+        }
+        write_txn.commit()?;
+    }
+    Ok(db)
 }
 
 pub const PACKAGES: TableDefinition<&str, &[u8]> = TableDefinition::new("PKGS");

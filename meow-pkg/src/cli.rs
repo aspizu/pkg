@@ -48,7 +48,7 @@ enum Command {
 
 pub fn run() -> eyre::Result<()> {
     let args = Cli::parse();
-    let root = args.root.unwrap_or_default();
+    let root = args.root.unwrap_or(PathBuf::from("/"));
     match args.command {
         Command::Install { package, overwrite, breakdeps } => {
             install(package, overwrite, breakdeps, root)
