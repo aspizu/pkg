@@ -78,4 +78,5 @@ cat /etc/os-release
 EOF
 
 rm -f /root/meow/rootfs.tar.xz
+echo -e "${Gray}Creating rootfs tarball...${Reset}"
 tar -cf /root/meow/rootfs.tar.xz -C /mnt .
