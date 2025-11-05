@@ -41,12 +41,16 @@ pub fn remove(name: String, breakdeps: bool, root: PathBuf) -> eyre::Result<()> 
     }
 
     let write_txn = db.begin_write()?;
-    let mut pkgs_table = write_txn.open_table(meowdb::PACKAGES)?;
-    let mut files_table = write_txn.open_table(meowdb::FILES)?;
-    for entry in pkgmeta.filelist.iter().rev() {
-        uninstall_path(&root, &entry.filepath, &mut files_table)?;
+    {
+        let mut pkgs_table = write_txn.open_table(meowdb::PACKAGES)?;
+        let mut files_table = write_txn.open_table(meowdb::FILES)?;
+
+        for entry in pkgmeta.filelist.iter().rev() {
+            uninstall_path(&root, &entry.filepath, &mut files_table)?;
+        }
+        pkgs_table.remove(&*name)?;
     }
-    pkgs_table.remove(&*name)?;
+    write_txn.commit()?;
 
     if &root == "/" {
         run_hook(&pkgmeta.name, &pkgmeta.post_remove, "post-remove", &pkgmeta.version, "")?;
