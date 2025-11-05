@@ -161,7 +161,7 @@ pub fn install(path: PathBuf, overwrite: bool, breakdeps: bool, root: PathBuf) -
             _ => bail!("invalid file type in meowzip {}", entry.filepath.display()),
         }
         unix::fs::lchown(&dest, Some(entry.uid), Some(entry.gid))?;
-        Mode::from(entry.mode).set_mode_path(&dest)?;
+        Mode::from(entry.mode).set_mode_path_nofollow(&dest)?;
     }
 
     let write_txn = db.begin_write()?;
@@ -229,13 +229,13 @@ fn get_path_context(
     files_table: &ReadOnlyTable<&str, &[u8]>,
     root: &Path,
 ) -> eyre::Result<PathContext> {
-    let filepath = path_chroot(&entry.filepath, root);
+    let dest = path_chroot(&entry.filepath, root);
     Ok(PathContext {
         filetype: Mode::from(entry.mode).file_type().unwrap(),
         oldrecord: files_table
             .get(entry.filepath.to_str().unwrap())?
             .map(|row| FileRecord::from(row.value())),
-        oldmeta: if fs::exists(&filepath)? { Some(fs::symlink_metadata(filepath)?) } else { None },
+        oldmeta: if fs::exists(&dest)? { Some(fs::symlink_metadata(dest)?) } else { None },
     })
 }
 
